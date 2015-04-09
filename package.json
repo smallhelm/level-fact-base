@@ -22,13 +22,16 @@
   },
   "devDependencies": {
     "gent": "^0.6.2",
+    "levelup": "^0.19.0",
+    "memdown": "^1.0.0",
     "tap-dot": "^1.0.0",
     "tape": "^4.0.0"
   },
   "scripts": {
-    "test": "node utils/string-hash.test.js | tap-dot"
+    "test": "node tests.js | tap-dot"
   },
   "dependencies": {
+    "level-errors": "^1.0.3",
     "lodash": "^3.6.0"
   }
 }
