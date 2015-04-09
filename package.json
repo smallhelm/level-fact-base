@@ -21,6 +21,7 @@
     "url": "https://github.com/smallhelm/level-fact-base/issues"
   },
   "devDependencies": {
+    "gent": "^0.6.2",
     "tap-dot": "^1.0.0",
     "tape": "^4.0.0"
   },

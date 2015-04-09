@@ -1,16 +1,13 @@
 var _ = require('lodash');
 var test = require('tape');
 var hash = require('./string-hash');
+var genInt = require('gent/generator/integer');
+var genString = require('gent/generator/string');
  
-var randomChar = (function(){
-	var chars = "\"'~!@#$%^&*()<:>[]{}.,+=-ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789".split("");
-	return function(){
-		return _.sample(chars);
-	};
-}());
+var nextStr = genString(genInt(0, 100));
 
 var randomString = function(){
-	return _.map(_.range(1, _.random(0, 10000)), randomChar).join("");
+	return nextStr.next().value;
 };
 
 var n_tests = 10000;
