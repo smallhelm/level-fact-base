@@ -32,15 +32,17 @@ test("ensure the basics work", function(t){
 test("ensure re-putting the same value before write yields the same hash", function(t){
 	var htable = HashTable(level(memdown));
 
-	async.series([
-		async.apply(htable.put, "hello"),
-		async.apply(htable.put, "hello")
-	], function(err, results){
-		t.equal(results[0].is_new, true);
-		t.notOk(results[1].is_new, "since the first one added it to the cache, we already have it");
-		t.ok(_.isString(results[0].hash));
-		t.ok(_.isString(results[1].hash), JSON.stringify(results[1]));
-		t.equal(results[0].hash, results[1].hash);
+	var n_puts = 100;
+	async.parallel(_.range(0, n_puts).map(function(){
+		return async.apply(htable.put, "hello");
+	}), function(err, results){
+		t.deepEqual(_.mapValues(_.groupBy(results, function(result){
+			return result.is_new === true;
+		}), _.size), {'true': 1, 'false': n_puts - 1}, "only the first put should be new");
+
+		var hashes = _.pluck(results, "hash");
+		t.ok(_.every(hashes, _.isString), "assert all hashes are string");
+		t.equal(1, _.unique(hashes).length, "assert only one hash");
 		t.end(err);
 	});
 });

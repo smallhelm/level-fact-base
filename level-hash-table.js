@@ -38,6 +38,10 @@ module.exports = function(db, options){
 		}).on('error', function(err){
 			callback(err);
 		}).on('end', function(){
+			//by the time this ends, some one else may have hashed the same value, so let's check the cache
+			if(runtime_cache_collisions[val_hash].hasOwnProperty(val)){
+				return callback(null, {hash: runtime_cache_collisions[val_hash][val]});
+			}
 			if(the_hash !== null){
 				callback(null, {hash: the_hash});
 			}else{
@@ -47,7 +51,7 @@ module.exports = function(db, options){
 				var next_num = _.isEmpty(seq_nums) ? 0 : _.max(seq_nums) + 1;
 				var hash = val_hash + toPaddedBase36(next_num, hash_seq_length);
 				runtime_cache_collisions[val_hash][val] = hash;
-				callback(null, {is_new: true, hash: hash});
+				callback(null, {is_new: true, hash: hash, key: index_prefix + hash});
 			}
 		});
 	};
