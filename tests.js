@@ -1,2 +1,2 @@
 require("./utils/stringHash.test");
-require("./level-hash-table.test");
+require("./level-hash-index.test");
