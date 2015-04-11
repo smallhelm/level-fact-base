@@ -1,6 +1,7 @@
 var _ = require('lodash');
 var async = require('async');
 var HashIndex = require('./level-hash-index');
+var toPaddedBase36 = require('./utils/toPaddedBase36');
 
 var escapeRegExp = function(str){
   return str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
@@ -42,8 +43,9 @@ var parseTuple = function(hindex, tuple, callback){
     t: function(callback){
       if(isVar(tuple[3])){
         return callback(null, {var_name: tuple[3]});
-      }else if(_.isString(tuple[3])){
-        return callback(null, {value: tuple[3], hash: tuple[3]});
+      }else if(_.isNumber(tuple[3])){
+        var txn = toPaddedBase36(tuple[3], 6);
+        return callback(null, {value: txn, hash: txn});
       }
       callback(null, {is_blank: true});
     },
@@ -129,23 +131,12 @@ var findMatchingKeys = function(db, matcher, callback){
 var bindKeys = function(index_name, matching_keys, q_fact){
   var binding = {};//to ensure unique-ness
 
-  var var_keys = {};
-  index_name.split('').forEach(function(k, i){
-    if(q_fact[k].hasOwnProperty('var_name')){
-      var_keys[q_fact[k].var_name] = i + 1;
-    }
-  });
-
   matching_keys.forEach(function(key){
     var parts = key.split("!");
 
     var vars = {};
     var hash_key = '';
 
-    _.each(var_keys, function(i, var_name){
-      vars[var_name] = parts[i];
-      hash_key += '!'+ parts[i];
-    });
     index_name.split('').forEach(function(k, i){
       if(q_fact[k].hasOwnProperty('var_name')){
         var part = parts[i + 1];
