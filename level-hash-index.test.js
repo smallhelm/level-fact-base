@@ -36,10 +36,7 @@ test("ensure re-putting the same value before write yields the same hash", funct
   async.parallel(_.range(0, n_puts).map(function(){
     return async.apply(hindex.put, "hello");
   }), function(err, results){
-    t.deepEqual(_.mapValues(_.groupBy(results, function(result){
-      return result.is_new === true;
-    }), _.size), {'true': 1, 'false': n_puts - 1}, "only the first put should be new");
-
+    t.deepEqual(_.unique(_.pluck(results, 'is_new')), [true], "all should be considered new until it's persisted to the db");
     var hashes = _.pluck(results, "hash");
     t.ok(_.every(hashes, _.isString), "assert all hashes are string");
     t.equal(1, _.unique(hashes).length, "assert only one hash");
@@ -90,5 +87,29 @@ test("handle hash collisions that are not yet persisted", function(t){
       return hash.substring(0, hash.length - 2);
     })).length, "assert they actually did collide");
     t.end(err);
+  });
+});
+
+test("the cache should be honest on when the hash is actually persisted in the db", function(t){
+  var hindex = HashIndex(level(memdown));
+
+  hindex.getHash("hello", function(err, hash){
+    t.equal(err && err.type, 'NotFoundError', "shouldn't be hashed yet");
+    t.notOk(hash);
+
+    async.series([
+      async.apply(hindex.put, "hello"),
+      async.apply(hindex.put, "hello"),
+      async.apply(hindex.putAndWrite, "hello"),
+      async.apply(hindex.put, "hello"),
+      async.apply(hindex.getHash, "hello")
+    ], function(err, results){
+      t.equal(results[0].is_new, true, "still should be new b/c it hasn't yet been written");
+      t.equal(results[1].is_new, true, "still should be new b/c it hasn't yet been written");
+      t.equal(_.isString(results[2]), true);
+      t.notOk(results[3].is_new);
+      t.equal(results[4], results[2]);
+      t.end(err);
+    });
   });
 });
