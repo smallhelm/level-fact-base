@@ -10,11 +10,8 @@ var Transactor = require('./transactor');
 
 var setupMiddleDataset = function(callback){
   var db = level(memdown);
-
   Transactor(db, {}, function(err, transactor){
-    if(err){
-      return callback(err);
-    }
+    if(err) return callback(err);
     transactor.transact([
       [    "axl", "father",     "mike"],
       [    "axl", "mother",  "frankie"],
@@ -29,19 +26,15 @@ var setupMiddleDataset = function(callback){
       [  "janet", "mother",      "pat"],
       [  "janet", "father",      "tag"]
     ], {}, function(err){
-      if(err){
-        return callback(err);
-      }
-      callback(null, Inquisitor(db));
+      if(err) callback(err);
+      else callback(null, Inquisitor(db));
     });
   });
 };
 
 test("basic qTuple stuff", function(t){
   setupMiddleDataset(function(err, inq){
-    if(err){
-      return t.end(err);
-    }
+    if(err) return t.end(err);
     async.parallel({
       axl_mother:           async.apply(inq.qTuple, ["axl",       "mother", "?mother"], {}),
       axl_relation_to_mike: async.apply(inq.qTuple, ["axl",    "?relation", "mike"], {}),
@@ -59,9 +52,7 @@ test("basic qTuple stuff", function(t){
 
 test("do some family tree questions", function(t){
   setupMiddleDataset(function(err, inq){
-    if(err){
-      return t.end(err);
-    }
+    if(err) return t.end(err);
     async.parallel({
       husbands_and_wifes:   async.apply(inq.q, [["?child", "mother", "?wife"],
                                                 ["?child", "father", "?husband"]], [{}]),
@@ -80,6 +71,37 @@ test("do some family tree questions", function(t){
       t.deepEqual(_.unique(_.pluck(r.sue_grandfathers, "?grandpa1").concat(_.pluck(r.sue_grandfathers, "?grandpa2"))).sort(), ["big mike", "tag"]);
       t.deepEqual(_.unique(_.pluck(r.sue_siblings, "?sibling")).sort(), ["axl", "brick", "sue"]);
       t.end(err);
+    });
+  });
+});
+
+test("queries using txn", function(t){
+  var db = level(memdown);
+  Transactor(db, {}, function(err, transactor){
+    if(err) return t.end(err);
+    async.series([
+      async.apply(transactor.transact, [["prophet", "is",    "smith"]], {}),
+      async.apply(transactor.transact, [["prophet", "is",    "young"]], {}),
+      async.apply(transactor.transact, [["prophet", "is",   "taylor"]], {}),
+      async.apply(transactor.transact, [["prophet", "is", "woodruff"]], {}),
+      async.apply(transactor.transact, [["prophet", "is",     "snow"]], {})
+    ], function(err){
+      if(err) return t.end(err);
+      var inq = Inquisitor(db);
+      async.parallel({
+        first:          async.apply(inq.q, [["prophet", "is", "?name",      1]], [{}]),
+        third:          async.apply(inq.q, [["prophet", "is", "?name",      3]], [{}]),
+        when_was_young: async.apply(inq.q, [["prophet", "is", "young", "?txn"]], [{}]),
+        who_is_latest:  async.apply(inq.q, [["prophet", "is", "?name"        ]], [{}]),
+        names_in_order: async.apply(inq.q, [["prophet", "is", "?name", "?txn"]], [{}])
+      }, function(err, r){
+        t.deepEqual(_.pluck(r.first, "?name"), ["smith"]);
+        t.deepEqual(_.pluck(r.third, "?name"), ["taylor"]);
+        t.deepEqual(_.pluck(r.when_was_young, "?txn"), [2]);
+        t.deepEqual(_.pluck(r.who_is_latest, "?name"), ["snow"]);
+        t.deepEqual(_.pluck(_.sortBy(r.names_in_order, "?txn"), "?name"), ["smith", "young", "taylor", "woodruff", "snow"]);
+        t.end(err);
+      });
     });
   });
 });

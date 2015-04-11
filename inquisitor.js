@@ -128,27 +128,53 @@ var findMatchingKeys = function(db, matcher, callback){
   });
 };
 
-var bindKeys = function(index_name, matching_keys, q_fact){
+var keyToFact = function(key){
+  var parts = key.split("!");
+  var index_name = parts[0];
+  var fact = {};
+  index_name.split('').forEach(function(k, i){
+    var part = parts[i + 1];
+    if(k === 't'){
+      fact[k] = {value: parseInt(part, 36)};
+    }else if(k === 'o'){
+      fact[k] = {value: part === '1'};
+    }else{
+      fact[k] = part;
+    }
+  });
+  return fact;
+};
+
+var bindKeys = function(matching_keys, q_fact){
   var binding = {};//to ensure unique-ness
 
+  var only_the_latest = q_fact.t.is_blank;//TODO also based on the cardiality of q_fact.a's schema
+  var latest_for = {};//latest for the same e+a
+
+  var var_names = "eavto".split('').filter(function(k){
+    return q_fact[k].hasOwnProperty('var_name');
+  }).map(function(k){
+    return [q_fact[k].var_name, k];
+  });
+
   matching_keys.forEach(function(key){
-    var parts = key.split("!");
+    var fact = keyToFact(key);
+
+    if(only_the_latest){
+      if(latest_for.hasOwnProperty(fact.e + fact.a)){
+        if(latest_for[fact.e + fact.a] > fact.t.value){
+          return;//not the latest, so skip the rest
+        }
+      }
+      latest_for[fact.e + fact.a] = fact.t.value;
+    }
 
     var vars = {};
     var hash_key = '';
-
-    index_name.split('').forEach(function(k, i){
-      if(q_fact[k].hasOwnProperty('var_name')){
-        var part = parts[i + 1];
-        if(k === 't'){
-          vars[q_fact[k].var_name] = {value: parseInt(part, 36)};
-        }else if(k === 'o'){
-          vars[q_fact[k].var_name] = {value: part === '1'};
-        }else{
-          vars[q_fact[k].var_name] = part;
-        }
-        hash_key += part;
-      }
+    var_names.forEach(function(p){
+      var k = p[1];
+      vars[p[0]] = fact[k];
+      hash_key += _.isString(fact[k]) ? fact[k] : fact[k].value;
     });
     binding[hash_key] = vars;
   });
@@ -170,7 +196,7 @@ var qTuple = function(db, hindex, tuple, orig_binding, callback){
       if(err){
         return callback(err);
       }
-      var bindings = bindKeys(index_to_use, matching_keys, q_fact);
+      var bindings = bindKeys(matching_keys, q_fact);
 
       //de-hash the bindings
       async.map(bindings, function(binding, callback){
