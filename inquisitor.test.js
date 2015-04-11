@@ -105,3 +105,30 @@ test("queries using txn", function(t){
     });
   });
 });
+
+test("getEntity", function(t){
+  var db = level(memdown);
+  Transactor(db, {}, function(err, transactor){
+    if(err) return t.end(err);
+    async.series([
+      async.apply(transactor.transact, [["u0", "email", "andy@email.com"],
+                                        ["u0", "name",  "andy"]], {}),
+
+      async.apply(transactor.transact, [["u1", "email", "opie@email.com"],
+                                        ["u1", "name",  "opie"]], {}),
+
+      async.apply(transactor.transact, [["u0", "email", "new@email.com"]], {})
+    ], function(err){
+      if(err) return t.end(err);
+      var inq = Inquisitor(db);
+      async.parallel({
+        u0: async.apply(inq.getEntity, "u0"),
+        u1: async.apply(inq.getEntity, "u1")
+      }, function(err, r){
+        t.deepEqual(r.u0, {name: "andy", email: "new@email.com"});
+        t.deepEqual(r.u1, {name: "opie", email: "opie@email.com"});
+        t.end(err);
+      });
+    });
+  });
+});

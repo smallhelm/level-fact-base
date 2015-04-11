@@ -220,21 +220,34 @@ module.exports = function(db, options){
   options = options || {};
 
   var hindex = options.HashIndex || HashIndex(db);
+  var qTuple_bound = function(tuple, binding, callback){
+    //TODO validate tuple
+    qTuple(db, hindex, tuple, binding, callback);
+  };
+  var q = function(tuples, bindings, callback){
+    //TODO validate tuples is an array
+    async.reduce(tuples, bindings, function(bindings, tuple, callback){
+      async.map(bindings, function(binding, callback){
+        qTuple(db, hindex, tuple, binding, callback);
+      }, function(err, bindings){
+        if(err) callback(err);
+        else callback(null, _.flatten(bindings));
+      });
+    }, callback);
+  };
   return {
-    qTuple: function(tuple, binding, callback){
-      //TODO validate tuple
-      qTuple(db, hindex, tuple, binding, callback);
-    },
-    q: function(tuples, bindings, callback){
-      //TODO validate tuples is an array
-      async.reduce(tuples, bindings, function(bindings, tuple, callback){
-        async.map(bindings, function(binding, callback){
-          qTuple(db, hindex, tuple, binding, callback);
-        }, function(err, bindings){
-          if(err) callback(err);
-          else callback(null, _.flatten(bindings));
+    qTuple: qTuple_bound,
+    q: q,
+    getEntity: function(e, callback){
+      q([["?e", "?a", "?v"]], [{"?e": e}], function(err, results){
+        if(err) return callback(err);
+        var o = {};
+        results.forEach(function(result){
+          o[result["?a"]] = result["?v"];
+          //TODO cardinality = multiple
         });
-      }, callback);
+        callback(null, o);
+      });
     }
   };
 };
