@@ -15,11 +15,14 @@ var bindToTuple = function(tuple, binding){
   });
 };
 
+var isVar = function(elm){
+  return _.isString(elm) && elm[0] === '?';
+};
+
 var parseElement = function(hindex, elm, callback){
-  if(_.isString(elm)){
-    if(elm[0] === '?'){
-      return callback(null, {var_name: elm});
-    }
+  if(isVar(elm)){
+    return callback(null, {var_name: elm});
+  }else if(_.isString(elm)){
     hindex.getHash(elm, function(err, hash){
       if(err){
         return callback(err);
@@ -37,10 +40,20 @@ var parseTuple = function(hindex, tuple, callback){
     a: async.apply(parseElement, hindex, tuple[1]),
     v: async.apply(parseElement, hindex, tuple[2]),
     t: function(callback){
-      callback(null, _.isString(tuple[3]) ? {value: tuple[3], hash: tuple[3]} : {is_blank: true});
+      if(isVar(tuple[3])){
+        return callback(null, {var_name: tuple[3]});
+      }else if(_.isString(tuple[3])){
+        return callback(null, {value: tuple[3], hash: tuple[3]});
+      }
+      callback(null, {is_blank: true});
     },
     o: function(callback){
-      callback(null, tuple[4] === true || tuple[4] === false ? {value: tuple[4], hash: tuple[4]} : {is_blank: true});
+      if(isVar(tuple[4])){
+        return callback(null, {var_name: tuple[4]});
+      }else if(tuple[4] === true || tuple[4] === false){
+        return callback(null, {value: tuple[4], hash: tuple[4]});
+      }
+      callback(null, {is_blank: true});
     }
   }, callback);
 };
@@ -133,6 +146,19 @@ var bindKeys = function(index_name, matching_keys, q_fact){
       vars[var_name] = parts[i];
       hash_key += '!'+ parts[i];
     });
+    index_name.split('').forEach(function(k, i){
+      if(q_fact[k].hasOwnProperty('var_name')){
+        var part = parts[i + 1];
+        if(k === 't'){
+          vars[q_fact[k].var_name] = {value: parseInt(part, 36)};
+        }else if(k === 'o'){
+          vars[q_fact[k].var_name] = {value: part === '1'};
+        }else{
+          vars[q_fact[k].var_name] = part;
+        }
+        hash_key += part;
+      }
+    });
     binding[hash_key] = vars;
   });
   return _.values(binding);
@@ -154,9 +180,13 @@ var qTuple = function(db, hindex, tuple, orig_binding, callback){
       //de-hash the bindings
       async.map(bindings, function(binding, callback){
         async.map(_.pairs(binding), function(p, callback){
-          hindex.get(p[1], function(err, val){
-            callback(err, [p[0], val]);
-          });
+          if(_.isString(p[1])){
+            hindex.get(p[1], function(err, val){
+              callback(err, [p[0], val]);
+            });
+          }else{
+            callback(null, [p[0], p[1].value]);
+          }
         }, function(err, pairs){
           callback(err, _.assign({}, orig_binding, _.object(pairs)));
         });
@@ -165,8 +195,10 @@ var qTuple = function(db, hindex, tuple, orig_binding, callback){
   });
 };
 
-module.exports = function(db){
-  var hindex = HashIndex(db);
+module.exports = function(db, options){
+  options = options || {};
+
+  var hindex = options.HashIndex || HashIndex(db);
   return {
     qTuple: function(tuple, binding, callback){
       //TODO validate tuple

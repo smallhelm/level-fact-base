@@ -1,6 +1,7 @@
 var _ = require('lodash');
 var async = require('async');
 var HashIndex = require('./level-hash-index');
+var Inquisitor = require('./inquisitor');
 var toPaddedBase36 = require('./utils/toPaddedBase36');
 
 var tupleToDBOps = function(hindex, txn, tuple, callback){
@@ -35,11 +36,18 @@ module.exports = function(db, options, onStartup){
   options = options || {};
 
   var hindex = HashIndex(db);
+  var inq = Inquisitor(db, {HashIndex: hindex});
 
   //warm up the transactor by loading in it's current state
   async.parallel({
     transaction_n: function(callback){
-      callback(null, 36);//TODO read the DB to find the latest transaction number
+      inq.q([["?e", "?a", "?v", "?txn"]], [{}], function(err, results){
+        if(err){
+          return callback(err);
+        }
+        var txns = _.pluck(results, "?txn");
+        callback(null, txns.length === 0 ? 0 : _.max(txns));
+      });
     },
     schema: function(callback){
       callback(null, {});//TODO read user entered schema to extend the native db schema
