@@ -167,6 +167,10 @@ var bindKeys = function(index_name, matching_keys, q_fact){
 var qTuple = function(db, hindex, tuple, orig_binding, callback){
   parseTuple(hindex, bindToTuple(tuple, orig_binding), function(err, q_fact){
     if(err){
+      if(err.type === 'NotFoundError'){
+        //one of the tuple values were not found in the hash, so there must be no results
+        return callback(null, []);
+      }
       return callback(err);
     }
     var index_to_use = selectIndex(q_fact);

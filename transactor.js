@@ -41,7 +41,7 @@ module.exports = function(db, options, onStartup){
   //warm up the transactor by loading in it's current state
   async.parallel({
     transaction_n: function(callback){
-      inq.q([["?e", "?a", "?v", "?txn"]], [{}], function(err, results){
+      inq.q([["?e", "_db/time", "?v", "?txn"]], [{}], function(err, results){
         if(err){
           return callback(err);
         }
