@@ -157,16 +157,15 @@ var bindKeys = function(matching_keys, q_fact){
     return [q_fact[k].var_name, k];
   });
 
-  matching_keys.forEach(function(key){
+  matching_keys.forEach(function(key, i){
     var fact = keyToFact(key);
 
-    if(only_the_latest){
-      if(latest_for.hasOwnProperty(fact.e + fact.a)){
-        if(latest_for[fact.e + fact.a] > fact.t.value){
-          return;//not the latest, so skip the rest
-        }
+    var key_for_latest_for = only_the_latest ? fact.e + fact.a : i;
+
+    if(latest_for.hasOwnProperty(key_for_latest_for)){
+      if(latest_for[key_for_latest_for].txn > fact.t.value){
+        return;//not the latest, so skip the rest
       }
-      latest_for[fact.e + fact.a] = fact.t.value;
     }
 
     var vars = {};
@@ -177,8 +176,11 @@ var bindKeys = function(matching_keys, q_fact){
       hash_key += _.isString(fact[k]) ? fact[k] : fact[k].value;
     });
     binding[hash_key] = vars;
+    latest_for[key_for_latest_for] = {txn: fact.t.value, hash_key: hash_key};
   });
-  return _.values(binding);
+  return _.values(latest_for).map(function(l){
+    return binding[l.hash_key];
+  });
 };
 
 var qTuple = function(db, hindex, tuple, orig_binding, callback){
