@@ -1,6 +1,6 @@
 var _ = require('lodash');
 var async = require('async');
-var HashIndex = require('./level-hash-index');
+var HashIndex = require('level-hash-index');
 var Inquisitor = require('./inquisitor');
 var toPaddedBase36 = require('./utils/toPaddedBase36');
 

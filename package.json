@@ -32,6 +32,7 @@
   },
   "dependencies": {
     "level-errors": "^1.0.3",
+    "level-hash-index": "^0.1.1",
     "lodash": "^3.6.0"
   }
 }
