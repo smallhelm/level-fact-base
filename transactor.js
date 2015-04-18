@@ -32,6 +32,66 @@ var tupleToDBOps = function(hindex, txn, tuple, callback){
   });
 };
 
+var DB_TYPES = {
+  "Date": {
+    validate: _.isDate,
+    encode: function(d){
+      return d.toISOString();
+    },
+    decode: function(s){
+      return new Date(s);
+    }
+  },
+  "String": {
+    validate: _.isString,
+    encode: _.identity,
+    decode: _.identity
+  },
+  "Entity_ID": {
+    validate: _.isString,
+    encode: _.identity,
+    decode: _.identity
+  }
+};
+
+var validateAndEncodeFactTuple = function(fact_tuple, schema, callback){
+  if(!_.isArray(fact_tuple) || fact_tuple.length < 3 || fact_tuple.length > 4){//eavo
+    return callback(new Error("fact_tuple must be an array defining EAV or EAVO"));
+  }
+
+  //entity
+  var e = fact_tuple[0];
+  if(!DB_TYPES["Entity_ID"].validate(e)){
+    return callback(new Error("Not a valid entity id"));
+  }
+  e = DB_TYPES["Entity_ID"].encode(e);
+
+  //attribute
+  var a = fact_tuple[1];
+  if(!DB_TYPES["String"].validate(a) || !schema.hasOwnProperty(a)){
+    return callback(new Error("Attribute not found in schema: " + a));
+  }
+
+  //value
+  var v = fact_tuple[2];
+  var type = DB_TYPES[schema[a]["_db/type"]];
+  if(!type.validate(v)){
+    return callback(new Error("Invalid value for attribute " + a));
+  }
+  v = type.encode(v);
+
+  //op
+  var o = fact_tuple[3] === false ? 0 : 1;//default to 1
+
+  callback(null, [e, a, v, o]);
+};
+
+var validateAndEncodeFactTuples = function(fact_tuples, schema, callback){
+  async.map(fact_tuples, function(tuple, cb){
+    validateAndEncodeFactTuple(tuple, schema, cb);
+  }, callback);
+};
+
 module.exports = function(db, options, onStartup){
   options = options || {};
 
@@ -41,7 +101,7 @@ module.exports = function(db, options, onStartup){
   //warm up the transactor by loading in it's current state
   async.parallel({
     transaction_n: function(callback){
-      inq.q([[null, "_db/time", null, "?txn"]], [{}], function(err, results){
+      inq.q([[null, "_db/txn-time", null, "?txn"]], [{}], function(err, results){
         if(err){
           return callback(err);
         }
@@ -50,7 +110,24 @@ module.exports = function(db, options, onStartup){
       });
     },
     schema: function(callback){
-      callback(null, {});//TODO read user entered schema to extend the native db schema
+      //TODO read user entered schema to extend the native db schema
+      callback(null, {
+        "_db/type": {
+          "_db/type": "String"
+        },
+        "_db/txn-time": {
+          "_db/type": "Date"
+        },
+
+        //TODO remove the rest (currently stubbed in for now for tests)
+        "is": {"_db/type": "String"},
+        "email": {"_db/type": "String"},
+        "father": {"_db/type": "String"},
+        "mother": {"_db/type": "String"},
+        "name": {"_db/type": "String"},
+        "age": {"_db/type": "String"},
+        "user_id": {"_db/type": "String"}
+      });
     }
   }, function(err, transactor_state){
     if(err){
@@ -66,22 +143,22 @@ module.exports = function(db, options, onStartup){
         var txn = toPaddedBase36(transaction_n, 6);//for lexo-graphic sorting
 
         //store facts about the transaction
-        tx_data["_db/time"] = new Date().toISOString();
+        tx_data["_db/txn-time"] = new Date();
         _.each(tx_data, function(val, attr){
           fact_tuples.push(["_txid" + txn, attr, val]);
         });
 
-        //TODO validate and encode fact_tuples
-        //       + attributes must exist in the schema
-        //       + use schema to validate values
-        //       + use schema to encode values
-        //       + assert e,a,v are all strings in the end
-
-        async.map(fact_tuples, function(tuple, callback){
-          tupleToDBOps(hindex, txn, tuple, callback);  
-        }, function(err, ops){
-          if(err) callback(err);
-          else db.batch(_.flatten(ops), callback);
+        validateAndEncodeFactTuples(fact_tuples, schema, function(err, fact_tuples){
+          if(err){
+            return callback(err);
+          }
+          async.map(fact_tuples, function(tuple, callback){
+            tupleToDBOps(hindex, txn, tuple, callback);
+          }, function(err, ops){
+            if(err) callback(err);
+            else db.batch(_.flatten(ops), callback);
+            //TODO update schema if there were schema facts transacted
+          });
         });
       }
     });
