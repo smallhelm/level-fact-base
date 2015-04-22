@@ -1,5 +1,5 @@
 var _ = require('lodash');
-var async = require('async');
+var λ = require('contra');
 var HashIndex = require('level-hash-index');
 var toPaddedBase36 = require('./utils/toPaddedBase36');
 
@@ -36,10 +36,10 @@ var parseElement = function(hindex, elm, callback){
 };
 
 var parseTuple = function(hindex, tuple, callback){
-  async.parallel({
-    e: async.apply(parseElement, hindex, tuple[0]),
-    a: async.apply(parseElement, hindex, tuple[1]),
-    v: async.apply(parseElement, hindex, tuple[2]),
+  λ.concurrent({
+    e: λ.curry(parseElement, hindex, tuple[0]),
+    a: λ.curry(parseElement, hindex, tuple[1]),
+    v: λ.curry(parseElement, hindex, tuple[2]),
     t: function(callback){
       if(isVar(tuple[3])){
         return callback(null, {var_name: tuple[3]});
@@ -201,8 +201,8 @@ var qTuple = function(db, hindex, tuple, orig_binding, callback){
       var bindings = bindKeys(matching_keys, q_fact);
 
       //de-hash the bindings
-      async.map(bindings, function(binding, callback){
-        async.map(_.pairs(binding), function(p, callback){
+      λ.map(bindings, function(binding, callback){
+        λ.map(_.pairs(binding), function(p, callback){
           if(_.isString(p[1])){
             hindex.get(p[1], function(err, val){
               callback(err, [p[0], val]);
@@ -228,14 +228,22 @@ module.exports = function(db, options){
   };
   var q = function(tuples, bindings, callback){
     //TODO validate tuples is an array
-    async.reduce(tuples, bindings, function(bindings, tuple, callback){
-      async.map(bindings, function(binding, callback){
+
+    var memo = bindings;
+    λ.each.series(tuples, function(tuple, callback){
+
+      λ.map(memo, function(binding, callback){
         qTuple(db, hindex, tuple, binding, callback);
-      }, function(err, bindings){
-        if(err) callback(err);
-        else callback(null, _.flatten(bindings));
+      }, function(err, next_bindings){
+        if(err) return callback(err);
+        memo = _.flatten(next_bindings);
+        callback();
       });
-    }, callback);
+
+    }, function(err){
+      if(err) callback(err);
+      else callback(null, memo);
+    });
   };
   return {
     qTuple: qTuple_bound,

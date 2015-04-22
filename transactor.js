@@ -1,11 +1,11 @@
 var _ = require('lodash');
-var async = require('async');
+var λ = require('contra');
 var HashIndex = require('level-hash-index');
 var Inquisitor = require('./inquisitor');
 var toPaddedBase36 = require('./utils/toPaddedBase36');
 
 var tupleToDBOps = function(hindex, txn, tuple, callback){
-  async.map([tuple[0], tuple[1], tuple[2]], hindex.put, function(err, hash_datas){
+  λ.map([tuple[0], tuple[1], tuple[2]], hindex.put, function(err, hash_datas){
     if(err){
       callback(err);
       return;
@@ -87,7 +87,7 @@ var validateAndEncodeFactTuple = function(fact_tuple, schema, callback){
 };
 
 var validateAndEncodeFactTuples = function(fact_tuples, schema, callback){
-  async.map(fact_tuples, function(tuple, cb){
+  λ.map(fact_tuples, function(tuple, cb){
     validateAndEncodeFactTuple(tuple, schema, cb);
   }, callback);
 };
@@ -99,7 +99,7 @@ module.exports = function(db, options, onStartup){
   var inq = Inquisitor(db, {HashIndex: hindex});
 
   //warm up the transactor by loading in it's current state
-  async.parallel({
+  λ.concurrent({
     transaction_n: function(callback){
       inq.q([[null, "_db/txn-time", null, "?txn"]], [{}], function(err, results){
         if(err){
@@ -134,7 +134,7 @@ module.exports = function(db, options, onStartup){
           "age": {"_db/type": "String"},
           "user_id": {"_db/type": "String"}
         };
-        async.map(_.pluck(results, "?attr_id"), inq.getEntity, function(err, entities){
+        λ.map(_.pluck(results, "?attr_id"), inq.getEntity, function(err, entities){
           if(err){
             return callback(err);
           }
@@ -168,7 +168,7 @@ module.exports = function(db, options, onStartup){
           if(err){
             return callback(err);
           }
-          async.map(fact_tuples, function(tuple, callback){
+          λ.map(fact_tuples, function(tuple, callback){
             tupleToDBOps(hindex, txn, tuple, callback);
           }, function(err, ops){
             if(err) callback(err);
@@ -181,7 +181,7 @@ module.exports = function(db, options, onStartup){
               var attr_ids_transacted = _.pluck(fact_tuples.filter(function(fact){
                 return fact[1] === '_db/attribute';
               }), 0);
-              async.map(attr_ids_transacted, inq.getEntity, function(err, entities){
+              λ.map(attr_ids_transacted, inq.getEntity, function(err, entities){
                 if(err) callback(err);
 
                 entities.forEach(function(entity){

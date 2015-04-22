@@ -1,6 +1,6 @@
 var _ = require('lodash');
+var λ = require('contra');
 var test = require('tape');
-var async = require('async');
 var level = require('levelup');
 var memdown = require('memdown');
 var genRandomString = require('./utils/genRandomString');
@@ -106,10 +106,10 @@ test("ensure transactor warms up with the latest transaction id", function(t){
     if(err){
       return t.end(err);
     }
-    async.series([
-      async.apply(transactor.transact, [["bob", "is", "cool"]], {}),
-      async.apply(transactor.transact, [["bob", "is", "NOT cool"]], {}),
-      async.apply(transactor.transact, [["bob", "is", "cool"]], {})
+    λ.series([
+      λ.curry(transactor.transact, [["bob", "is", "cool"]], {}),
+      λ.curry(transactor.transact, [["bob", "is", "NOT cool"]], {}),
+      λ.curry(transactor.transact, [["bob", "is", "cool"]], {})
     ], function(err){
       if(err){
         return t.end(err);
