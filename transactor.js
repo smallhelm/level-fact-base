@@ -110,23 +110,39 @@ module.exports = function(db, options, onStartup){
       });
     },
     schema: function(callback){
-      //TODO read user entered schema to extend the native db schema
-      callback(null, {
-        "_db/type": {
-          "_db/type": "String"
-        },
-        "_db/txn-time": {
-          "_db/type": "Date"
-        },
+      inq.q([["?attr_id", "_db/attribute"]], [{}], function(err, results){
+        if(err){
+          return callback(err);
+        }
+        var schema = {
+          "_db/type": {
+            "_db/type": "String"
+          },
+          "_db/attribute": {
+            "_db/type": "String"
+          },
+          "_db/txn-time": {
+            "_db/type": "Date"
+          },
 
-        //TODO remove the rest (currently stubbed in for now for tests)
-        "is": {"_db/type": "String"},
-        "email": {"_db/type": "String"},
-        "father": {"_db/type": "String"},
-        "mother": {"_db/type": "String"},
-        "name": {"_db/type": "String"},
-        "age": {"_db/type": "String"},
-        "user_id": {"_db/type": "String"}
+          //TODO remove the rest (currently stubbed in for now for tests)
+          "is": {"_db/type": "String"},
+          "email": {"_db/type": "String"},
+          "father": {"_db/type": "String"},
+          "mother": {"_db/type": "String"},
+          "name": {"_db/type": "String"},
+          "age": {"_db/type": "String"},
+          "user_id": {"_db/type": "String"}
+        };
+        async.map(_.pluck(results, "?attr_id"), inq.getEntity, function(err, entities){
+          if(err){
+            return callback(err);
+          }
+          entities.forEach(function(entity){
+            schema[entity["_db/attribute"]] = entity;
+          });
+          callback(null, schema);
+        });
       });
     }
   }, function(err, transactor_state){

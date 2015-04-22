@@ -8,6 +8,38 @@ var genRandomString = require('./utils/genRandomString');
 var Transactor = require('./transactor');
 var Inquisitor = require('./inquisitor');
 
+test("ensure schema is loaded on transactor startup", function(t){
+  var db = level(memdown);
+  var inq = Inquisitor(db);
+
+  Transactor(db, {}, function(err, transactor1){
+    if(err) return t.end(err);
+
+    transactor1.transact([
+      ["sky", "color", "blue"]
+    ], {}, function(err){
+      t.ok(err);
+      t.equals(err.toString(), "Error: Attribute not found in schema: color");
+
+      transactor1.transact([
+        ["01", "_db/attribute", "color"],
+        ["01", "_db/type"     , "String"]
+      ], {}, function(err){
+        if(err) return t.end(err);
+
+        Transactor(db, {}, function(err, transactor2){
+          if(err) return t.end(err);
+          transactor2.transact([
+            ["sky", "color", "blue"]
+          ], {}, function(err){
+            t.end(err);
+          });
+        });
+      });
+    });
+  });
+});
+
 test("ensure transact persists stuff to the db", function(t){
   var db = level(memdown);
 
