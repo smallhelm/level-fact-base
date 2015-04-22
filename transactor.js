@@ -172,8 +172,24 @@ module.exports = function(db, options, onStartup){
             tupleToDBOps(hindex, txn, tuple, callback);
           }, function(err, ops){
             if(err) callback(err);
-            else db.batch(_.flatten(ops), callback);
-            //TODO update schema if there were schema facts transacted
+            else db.batch(_.flatten(ops), function(err){
+              if(err) callback(err);
+
+              //TODO
+              //TODO more optimal way of updating the schema
+              //TODO
+              var attr_ids_transacted = _.pluck(fact_tuples.filter(function(fact){
+                return fact[1] === '_db/attribute';
+              }), 0);
+              async.map(attr_ids_transacted, inq.getEntity, function(err, entities){
+                if(err) callback(err);
+
+                entities.forEach(function(entity){
+                  schema[entity["_db/attribute"]] = entity;
+                });
+                callback();
+              });
+            });
           });
         });
       }

@@ -40,6 +40,35 @@ test("ensure schema is loaded on transactor startup", function(t){
   });
 });
 
+test("ensure schema is updated as facts are recorded", function(t){
+  var db = level(memdown);
+  var inq = Inquisitor(db);
+
+  Transactor(db, {}, function(err, transactor){
+    if(err) return t.end(err);
+
+    transactor.transact([
+      ["sky", "color", "blue"]
+    ], {}, function(err){
+      t.ok(err);
+      t.equals(err.toString(), "Error: Attribute not found in schema: color");
+
+      transactor.transact([
+        ["01", "_db/attribute", "color"],
+        ["01", "_db/type"     , "String"]
+      ], {}, function(err){
+        if(err) return t.end(err);
+
+        transactor.transact([
+          ["sky", "color", "blue"]
+        ], {}, function(err){
+          t.end(err);
+        });
+      });
+    });
+  });
+});
+
 test("ensure transact persists stuff to the db", function(t){
   var db = level(memdown);
 
