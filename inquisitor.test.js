@@ -13,21 +13,31 @@ var setupMiddleDataset = function(callback){
   Transactor(db, {}, function(err, transactor){
     if(err) return callback(err);
     transactor.transact([
-      [    "axl", "father",     "mike"],
-      [    "axl", "mother",  "frankie"],
-      [    "sue", "father",     "mike"],
-      [    "sue", "mother",  "frankie"],
-      [  "brick", "father",     "mike"],
-      [  "brick", "mother",  "frankie"],
-      [   "mike", "father", "big mike"],
-      [  "rusty", "father", "big mike"],
-      ["frankie", "mother",      "pat"],
-      ["frankie", "father",      "tag"],
-      [  "janet", "mother",      "pat"],
-      [  "janet", "father",      "tag"]
+      ["01", "_db/attribute", "father"],
+      ["01", "_db/type"     , "String"],
+
+      ["02", "_db/attribute", "mother"],
+      ["02", "_db/type"     , "String"]
     ], {}, function(err){
       if(err) callback(err);
-      else callback(null, Inquisitor(db));
+
+      transactor.transact([
+        [    "axl", "father",     "mike"],
+        [    "axl", "mother",  "frankie"],
+        [    "sue", "father",     "mike"],
+        [    "sue", "mother",  "frankie"],
+        [  "brick", "father",     "mike"],
+        [  "brick", "mother",  "frankie"],
+        [   "mike", "father", "big mike"],
+        [  "rusty", "father", "big mike"],
+        ["frankie", "mother",      "pat"],
+        ["frankie", "father",      "tag"],
+        [  "janet", "mother",      "pat"],
+        [  "janet", "father",      "tag"]
+      ], {}, function(err){
+        if(err) callback(err);
+        else callback(null, Inquisitor(db));
+      });
     });
   });
 };
@@ -80,6 +90,8 @@ test("queries using txn", function(t){
   Transactor(db, {}, function(err, transactor){
     if(err) return t.end(err);
     λ.series([
+      λ.curry(transactor.transact, [["01", "_db/attribute", "is"],
+                                    ["01", "_db/type"     , "String"]], {}),
       λ.curry(transactor.transact, [["prophet", "is",    "smith"]], {}),
       λ.curry(transactor.transact, [["prophet", "is",    "young"]], {}),
       λ.curry(transactor.transact, [["prophet", "is",   "taylor"]], {}),
@@ -89,15 +101,15 @@ test("queries using txn", function(t){
       if(err) return t.end(err);
       var inq = Inquisitor(db);
       λ.concurrent({
-        first:          λ.curry(inq.q, [["prophet", "is", "?name",      1]], [{}]),
-        third:          λ.curry(inq.q, [["prophet", "is", "?name",      3]], [{}]),
+        first:          λ.curry(inq.q, [["prophet", "is", "?name",      2]], [{}]),
+        third:          λ.curry(inq.q, [["prophet", "is", "?name",      4]], [{}]),
         when_was_young: λ.curry(inq.q, [["prophet", "is", "young", "?txn"]], [{}]),
         who_is_latest:  λ.curry(inq.q, [["prophet", "is", "?name"        ]], [{}]),
         names_in_order: λ.curry(inq.q, [["prophet", "is", "?name", "?txn"]], [{}])
       }, function(err, r){
         t.deepEqual(_.pluck(r.first, "?name"), ["smith"]);
         t.deepEqual(_.pluck(r.third, "?name"), ["taylor"]);
-        t.deepEqual(_.pluck(r.when_was_young, "?txn"), [2]);
+        t.deepEqual(_.pluck(r.when_was_young, "?txn"), [3]);
         t.deepEqual(_.pluck(r.who_is_latest, "?name"), ["snow"]);
         t.deepEqual(_.pluck(_.sortBy(r.names_in_order, "?txn"), "?name"), ["smith", "young", "taylor", "woodruff", "snow"]);
         t.end(err);
@@ -111,11 +123,16 @@ test("getEntity", function(t){
   Transactor(db, {}, function(err, transactor){
     if(err) return t.end(err);
     λ.series([
+      λ.curry(transactor.transact, [["01", "_db/attribute", "email"],
+                                    ["01", "_db/type"     , "String"],
+                                    ["02", "_db/attribute", "name"],
+                                    ["02", "_db/type"     , "String"]], {}),
+
       λ.curry(transactor.transact, [["u0", "email", "andy@email.com"],
-                                        ["u0", "name",  "andy"]], {}),
+                                    ["u0", "name",  "andy"]], {}),
 
       λ.curry(transactor.transact, [["u1", "email", "opie@email.com"],
-                                        ["u1", "name",  "opie"]], {}),
+                                    ["u1", "name",  "opie"]], {}),
 
       λ.curry(transactor.transact, [["u0", "email", "new@email.com"]], {})
     ], function(err){

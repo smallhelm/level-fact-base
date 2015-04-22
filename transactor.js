@@ -123,16 +123,7 @@ module.exports = function(db, options, onStartup){
           },
           "_db/txn-time": {
             "_db/type": "Date"
-          },
-
-          //TODO remove the rest (currently stubbed in for now for tests)
-          "is": {"_db/type": "String"},
-          "email": {"_db/type": "String"},
-          "father": {"_db/type": "String"},
-          "mother": {"_db/type": "String"},
-          "name": {"_db/type": "String"},
-          "age": {"_db/type": "String"},
-          "user_id": {"_db/type": "String"}
+          }
         };
         λ.map(_.pluck(results, "?attr_id"), inq.getEntity, function(err, entities){
           if(err){
