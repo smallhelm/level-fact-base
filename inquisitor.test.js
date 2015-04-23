@@ -149,3 +149,24 @@ test("getEntity", function(t){
     });
   });
 });
+
+test("the throw-away binding", function(t){
+  setupMiddleDataset(function(err, inq){
+    if(err) return t.end(err);
+    λ.concurrent({
+      all_entities: λ.curry(inq.q, [["?entity"]], [{}]),
+      all_fathers:  λ.curry(inq.q, [["?_", "father", "?father"]], [{}]),
+      sue_siblings: λ.curry(inq.q, [[    "?sue", "mother", "?_"],
+                                    ["?sibling", "mother", "?_"]], [{"?sue": "sue"}])
+    }, function(err, r){
+      t.deepEqual(_.pluck(r.all_entities, "?entity").sort(), ['01', '02', '_txid000001', '_txid000002', 'axl', 'brick', 'frankie', 'janet', 'mike', 'rusty', 'sue']);
+      t.deepEqual(_.sortBy(r.all_fathers, "?father"), [{"?father": 'big mike'}, {"?father": 'mike'}, {"?father": 'tag'}], "should not have ?_ bound to anything");
+      t.deepEqual(_.sortBy(r.sue_siblings, "?sibling"), [{'?sibling': 'axl', '?sue': 'sue'},
+                                                         {'?sibling': 'brick', '?sue': 'sue'},
+                                                         {'?sibling': 'frankie', '?sue': 'sue'},
+                                                         {'?sibling': 'janet', '?sue': 'sue'},
+                                                         {'?sibling': 'sue', '?sue': 'sue'}], "should be everyone with a mother b/c ?_ shouldn't join");
+      t.end(err);
+    });
+  });
+});

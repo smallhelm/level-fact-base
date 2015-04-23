@@ -101,7 +101,7 @@ module.exports = function(db, options, onStartup){
   //warm up the transactor by loading in it's current state
   λ.concurrent({
     transaction_n: function(callback){
-      inq.q([[null, "_db/txn-time", null, "?txn"]], [{}], function(err, results){
+      inq.q([["?_", "_db/txn-time", "?_", "?txn"]], [{}], function(err, results){
         if(err){
           return callback(err);
         }

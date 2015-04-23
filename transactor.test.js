@@ -10,7 +10,6 @@ var Inquisitor = require('./inquisitor');
 
 test("ensure schema is loaded on transactor startup", function(t){
   var db = level(memdown);
-  var inq = Inquisitor(db);
 
   Transactor(db, {}, function(err, transactor1){
     if(err) return t.end(err);
@@ -42,7 +41,6 @@ test("ensure schema is loaded on transactor startup", function(t){
 
 test("ensure schema is updated as facts are recorded", function(t){
   var db = level(memdown);
-  var inq = Inquisitor(db);
 
   Transactor(db, {}, function(err, transactor){
     if(err) return t.end(err);
@@ -125,7 +123,7 @@ test("ensure transactor warms up with the latest transaction id", function(t){
         return t.end(err);
       }
 
-      inq.q([[null, null, null, "?txn"]], [{}], function(err, results){
+      inq.q([["?_", "?_", "?_", "?txn"]], [{}], function(err, results){
         if(err){
           return t.end(err);
         }
@@ -141,7 +139,7 @@ test("ensure transactor warms up with the latest transaction id", function(t){
             if(err){
               return t.end(err);
             }
-            inq.q([[null, null, null, "?txn"]], [{}], function(err, results){
+            inq.q([["?_", "?_", "?_", "?txn"]], [{}], function(err, results){
               var txns = _.unique(_.pluck(results, "?txn")).sort();
               t.deepEqual(txns, [1, 2, 3, 4, 5]);
               t.end(err);

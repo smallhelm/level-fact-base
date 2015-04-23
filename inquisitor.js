@@ -20,43 +20,40 @@ var isVar = function(elm){
   return _.isString(elm) && elm[0] === '?';
 };
 
-var parseElement = function(hindex, elm, callback){
-  if(isVar(elm)){
-    return callback(null, {var_name: elm});
-  }else if(_.isString(elm)){
+var isTheThrowAwayVar = function(elm){
+  return elm === '?_';
+};
+
+var parseElement = function(hindex, tuple, i, callback){
+  var elm = tuple.length < i + 1 ? '?_' : tuple[i];
+  if(isTheThrowAwayVar(elm)){
+    callback(null, {is_blank: true});
+  }else if(isVar(elm)){
+    callback(null, {var_name: elm});
+  }else if(i < 3 && _.isString(elm)){
     hindex.getHash(elm, function(err, hash){
       if(err){
         return callback(err);
       }
       callback(null, {value: elm, hash: hash});
     });
+  }else if(i === 3 && _.isNumber(elm)){
+    var txn = toPaddedBase36(elm, 6);
+    callback(null, {value: txn, hash: txn});
+  }else if(i === 4 && (elm === true || elm === false)){
+    callback(null, {value: elm, hash: elm});
   }else{
-    callback(null, {is_blank: true});
+    callback(new Error('element ' + i + ' in tuple has invalid type'));
   }
 };
 
 var parseTuple = function(hindex, tuple, callback){
   λ.concurrent({
-    e: λ.curry(parseElement, hindex, tuple[0]),
-    a: λ.curry(parseElement, hindex, tuple[1]),
-    v: λ.curry(parseElement, hindex, tuple[2]),
-    t: function(callback){
-      if(isVar(tuple[3])){
-        return callback(null, {var_name: tuple[3]});
-      }else if(_.isNumber(tuple[3])){
-        var txn = toPaddedBase36(tuple[3], 6);
-        return callback(null, {value: txn, hash: txn});
-      }
-      callback(null, {is_blank: true});
-    },
-    o: function(callback){
-      if(isVar(tuple[4])){
-        return callback(null, {var_name: tuple[4]});
-      }else if(tuple[4] === true || tuple[4] === false){
-        return callback(null, {value: tuple[4], hash: tuple[4]});
-      }
-      callback(null, {is_blank: true});
-    }
+    e: λ.curry(parseElement, hindex, tuple, 0),
+    a: λ.curry(parseElement, hindex, tuple, 1),
+    v: λ.curry(parseElement, hindex, tuple, 2),
+    t: λ.curry(parseElement, hindex, tuple, 3),
+    o: λ.curry(parseElement, hindex, tuple, 4)
   }, callback);
 };
 
@@ -178,8 +175,8 @@ var bindKeys = function(matching_keys, q_fact){
     binding[hash_key] = vars;
     latest_for[key_for_latest_for] = {txn: fact.t.value, hash_key: hash_key};
   });
-  return _.values(latest_for).map(function(l){
-    return binding[l.hash_key];
+  return _.unique(_.pluck(latest_for, 'hash_key')).map(function(key){
+    return binding[key];
   });
 };
 
