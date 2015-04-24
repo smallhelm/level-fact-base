@@ -32,10 +32,8 @@ var parseElement = function(hindex, tuple, i, callback){
     callback(null, {var_name: elm});
   }else if(i < 3 && _.isString(elm)){
     hindex.getHash(elm, function(err, hash){
-      if(err){
-        return callback(err);
-      }
-      callback(null, {value: elm, hash: hash});
+      if(err) callback(err);
+      else callback(null, {value: elm, hash: hash});
     });
   }else if(i === 3 && _.isNumber(elm)){
     var txn = toPaddedBase36(elm, 6);
@@ -192,9 +190,8 @@ var qTuple = function(db, hindex, tuple, orig_binding, callback){
     var index_to_use = selectIndex(q_fact);
 
     findMatchingKeys(db, toMatcher(index_to_use, q_fact), function(err, matching_keys){
-      if(err){
-        return callback(err);
-      }
+      if(err) return callback(err);
+
       var bindings = bindKeys(matching_keys, q_fact);
 
       //de-hash the bindings
@@ -220,15 +217,24 @@ module.exports = function(db, options){
 
   var hindex = options.HashIndex || HashIndex(db);
   var qTuple_bound = function(tuple, binding, callback){
-    //TODO validate tuple
+    if(!_.isArray(tuple)){
+      return callback(new Error("tuple must be an array"));
+    }
+    if(!_.isPlainObject(binding)){
+      return callback(new Error("binding must be a plain object"));
+    }
     qTuple(db, hindex, tuple, binding, callback);
   };
   var q = function(tuples, bindings, callback){
-    //TODO validate tuples is an array
+    if(!_.isArray(tuples)){
+      return callback(new Error("q expects an array of tuples"));
+    }
+    if(!_.isArray(bindings)){
+      return callback(new Error("q expects an array bindings"));
+    }
 
     var memo = bindings;
     λ.each.series(tuples, function(tuple, callback){
-
       λ.map(memo, function(binding, callback){
         qTuple(db, hindex, tuple, binding, callback);
       }, function(err, next_bindings){
@@ -236,7 +242,6 @@ module.exports = function(db, options){
         memo = _.flatten(next_bindings);
         callback();
       });
-
     }, function(err){
       if(err) callback(err);
       else callback(null, memo);
