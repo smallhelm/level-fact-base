@@ -1,15 +1,14 @@
 var _ = require('lodash');
 var λ = require('contra');
+var Schema = require('./schema');
 var HashIndex = require('level-hash-index');
 var Inquisitor = require('./inquisitor');
 var toPaddedBase36 = require('./utils/toPaddedBase36');
 
-var tupleToDBOps = function(hindex, txn, tuple, callback){
+var tupleToDBOps = function(hindex, schema, txn, tuple, callback){
   λ.map([tuple[0], tuple[1], tuple[2]], hindex.put, function(err, hash_datas){
-    if(err){
-      callback(err);
-      return;
-    }
+    if(err) return callback(err);
+
     var ops = [];
     var fact = {
       t: txn,
@@ -22,36 +21,17 @@ var tupleToDBOps = function(hindex, txn, tuple, callback){
       }
     });
 
-    var indexes = ['eavto', 'aevto'];//TODO decide this based on attribute schema
-    indexes.forEach(function(index){
-      ops.push({type: 'put', key: index + '!' + index.split('').map(function(k){
-        return fact[k];
-      }).join('!'), value: 0});
-    });
-    callback(null, ops);
-  });
-};
+    schema.getIndexesForAttribute(tuple[1], function(err, indexes){
+      if(err) return callback(err);
 
-var DB_TYPES = {
-  "Date": {
-    validate: _.isDate,
-    encode: function(d){
-      return d.toISOString();
-    },
-    decode: function(s){
-      return new Date(s);
-    }
-  },
-  "String": {
-    validate: _.isString,
-    encode: _.identity,
-    decode: _.identity
-  },
-  "Entity_ID": {
-    validate: _.isString,
-    encode: _.identity,
-    decode: _.identity
-  }
+      indexes.forEach(function(index){
+        ops.push({type: 'put', key: index + '!' + index.split('').map(function(k){
+          return fact[k];
+        }).join('!'), value: 0});
+      });
+      callback(null, ops);
+    });
+  });
 };
 
 var validateAndEncodeFactTuple = function(fact_tuple, schema, callback){
@@ -61,29 +41,28 @@ var validateAndEncodeFactTuple = function(fact_tuple, schema, callback){
 
   //entity
   var e = fact_tuple[0];
-  if(!DB_TYPES["Entity_ID"].validate(e)){
+  if(!schema.types["Entity_ID"].validate(e)){
     return callback(new Error("Not a valid entity id"));
   }
-  e = DB_TYPES["Entity_ID"].encode(e);
+  e = schema.types["Entity_ID"].encode(e);
 
   //attribute
   var a = fact_tuple[1];
-  if(!DB_TYPES["String"].validate(a) || !schema.hasOwnProperty(a)){
-    return callback(new Error("Attribute not found in schema: " + a));
-  }
+  schema.getTypeForAttribute(a, function(err, type){
+    if(err) return callback(err);
 
-  //value
-  var v = fact_tuple[2];
-  var type = DB_TYPES[schema[a]["_db/type"]];
-  if(!type.validate(v)){
-    return callback(new Error("Invalid value for attribute " + a));
-  }
-  v = type.encode(v);
+    //value
+    var v = fact_tuple[2];
+    if(!type.validate(v)){
+      return callback(new Error("Invalid value for attribute " + a));
+    }
+    v = type.encode(v);
 
-  //op
-  var o = fact_tuple[3] === false ? 0 : 1;//default to 1
+    //op
+    var o = fact_tuple[3] === false ? 0 : 1;//default to 1
 
-  callback(null, [e, a, v, o]);
+    callback(null, [e, a, v, o]);
+  });
 };
 
 var validateAndEncodeFactTuples = function(fact_tuples, schema, callback){
@@ -102,44 +81,31 @@ module.exports = function(db, options, onStartup){
   λ.concurrent({
     transaction_n: function(callback){
       inq.q([["?_", "_db/txn-time", "?_", "?txn"]], [{}], function(err, results){
-        if(err){
-          return callback(err);
-        }
+        if(err) return callback(err);
+
         var txns = _.pluck(results, "?txn");
         callback(null, txns.length === 0 ? 0 : _.max(txns));
       });
     },
     schema: function(callback){
+      var schema = Schema(db);
+      //TODO let Schema do the loading and managing of schema attributes
       inq.q([["?attr_id", "_db/attribute"]], [{}], function(err, results){
-        if(err){
-          return callback(err);
-        }
-        var schema = {
-          "_db/type": {
-            "_db/type": "String"
-          },
-          "_db/attribute": {
-            "_db/type": "String"
-          },
-          "_db/txn-time": {
-            "_db/type": "Date"
-          }
-        };
+        if(err) return callback(err);
+
         λ.map(_.pluck(results, "?attr_id"), inq.getEntity, function(err, entities){
-          if(err){
-            return callback(err);
-          }
+          if(err) return callback(err);
+
           entities.forEach(function(entity){
-            schema[entity["_db/attribute"]] = entity;
+            schema.schema[entity["_db/attribute"]] = entity;
           });
           callback(null, schema);
         });
       });
     }
   }, function(err, transactor_state){
-    if(err){
-      return onStartup(err);
-    }
+    if(err) return onStartup(err);
+
     var schema = transactor_state.schema;
     var transaction_n = transactor_state.transaction_n;
 
@@ -156,15 +122,15 @@ module.exports = function(db, options, onStartup){
         });
 
         validateAndEncodeFactTuples(fact_tuples, schema, function(err, fact_tuples){
-          if(err){
-            return callback(err);
-          }
+          if(err) return callback(err);
+
           λ.map(fact_tuples, function(tuple, callback){
-            tupleToDBOps(hindex, txn, tuple, callback);
+            tupleToDBOps(hindex, schema, txn, tuple, callback);
           }, function(err, ops){
-            if(err) callback(err);
-            else db.batch(_.flatten(ops), function(err){
-              if(err) callback(err);
+            if(err) return callback(err);
+
+            db.batch(_.flatten(ops), function(err){
+              if(err) return callback(err);
 
               //TODO
               //TODO more optimal way of updating the schema
@@ -173,10 +139,10 @@ module.exports = function(db, options, onStartup){
                 return fact[1] === '_db/attribute';
               }), 0);
               λ.map(attr_ids_transacted, inq.getEntity, function(err, entities){
-                if(err) callback(err);
+                if(err) return callback(err);
 
                 entities.forEach(function(entity){
-                  schema[entity["_db/attribute"]] = entity;
+                  schema.schema[entity["_db/attribute"]] = entity;
                 });
                 callback();
               });
