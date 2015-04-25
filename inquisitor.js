@@ -7,10 +7,18 @@ var escapeRegExp = function(str){
   return str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
 };
 
+var escapeVar = function(elm){
+  return _.isString(elm) ? elm.replace(/^\\/, "\\\\").replace(/^\?/, "\\?") : elm;
+};
+
+var unEscapeVar = function(elm){
+  return _.isString(elm) ? elm.replace(/^\\/, "") : elm;
+};
+
 var bindToTuple = function(tuple, binding){
   return tuple.map(function(e){
     if(binding.hasOwnProperty(e)){
-      return binding[e];
+      return escapeVar(binding[e]);
     }
     return e;
   });
@@ -31,6 +39,7 @@ var parseElement = function(hindex, tuple, i, callback){
   }else if(isVar(elm)){
     callback(null, {var_name: elm});
   }else if(i < 3 && _.isString(elm)){
+    elm = unEscapeVar(elm);
     hindex.getHash(elm, function(err, hash){
       if(err) callback(err);
       else callback(null, {value: elm, hash: hash});

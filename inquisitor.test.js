@@ -170,3 +170,45 @@ test("the throw-away binding", function(t){
     });
   });
 });
+
+test("escaping '?...' values", function(t){
+  var db = level(memdown);
+  Transactor(db, {}, function(err, transactor){
+    if(err) return t.end(err);
+    λ.series([
+      λ.curry(transactor.transact, [["0", "_db/attribute", "name"],
+                                    ["0", "_db/type"     , "String"]], {}),
+
+      λ.curry(transactor.transact, [["1", "name", "?notavar"],
+                                    ["2", "name", "notavar"],
+                                    ["3", "name", "\\?notavar"],
+                                    ["4", "name", "\\\\"],
+                                    ["5", "name", "?_"]], {})
+    ], function(err){
+      if(err) return t.end(err);
+      var inq = Inquisitor(db);
+      λ.concurrent({
+        should_be_a_var:      λ.curry(inq.q, [["?id", "name", "?notavar"]], [{}]),
+        bind_it:              λ.curry(inq.q, [["?id", "name", "?name"]], [{"?name": "?notavar"}]),
+        escape_it:            λ.curry(inq.q, [["?id", "name", "\\?notavar"]], [{}]),
+        bind_it2:             λ.curry(inq.q, [["?id", "name", "?name"]], [{"?name": "\\?notavar"}]),
+        not_actually_escaped: λ.curry(inq.q, [["?id", "name", "\\\\?notavar"]], [{}]),
+        double_slash:         λ.curry(inq.q, [["?id", "name", "\\\\\\"]], [{}]),
+        double_slash_bind:    λ.curry(inq.q, [["?id", "name", "?name"]], [{"?name": "\\\\"}]),
+        not_a_throw_away:     λ.curry(inq.q, [["?id", "name", "\\?_"]], [{}]),
+        not_a_throw_away2:    λ.curry(inq.q, [["?id", "name", "?name"]], [{"?name": "?_"}]),
+      }, function(err, r){
+        t.deepEqual(r.should_be_a_var, [{"?id": "1", "?notavar": "?notavar"}, {"?id": "2", "?notavar": "notavar"}, {"?id": "3", "?notavar": "\\?notavar"}, {"?id": "4", "?notavar": "\\\\"}, {"?id": "5", "?notavar": "?_"}]);
+        t.deepEqual(r.bind_it, [{"?id": "1", "?name": "?notavar"}]);
+        t.deepEqual(r.escape_it, [{"?id": "1"}]);
+        t.deepEqual(r.bind_it2, [{"?id": "3", "?name": "\\?notavar"}]);
+        t.deepEqual(r.not_actually_escaped, [{"?id": "3"}]);
+        t.deepEqual(r.double_slash, [{"?id": "4"}]);
+        t.deepEqual(r.double_slash_bind, [{"?id": "4", "?name": "\\\\"}]);
+        t.deepEqual(r.not_a_throw_away, [{"?id": "5"}]);
+        t.deepEqual(r.not_a_throw_away2, [{"?id": "5", "?name": "?_"}]);
+        t.end(err);
+      });
+    });
+  });
+});
