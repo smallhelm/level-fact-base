@@ -1,11 +1,8 @@
 var _ = require('lodash');
 var λ = require('contra');
+var escapeRegExp = require('escape-regexp');
 var HashIndex = require('level-hash-index');
 var toPaddedBase36 = require('./utils/toPaddedBase36');
-
-var escapeRegExp = function(str){
-  return str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
-};
 
 var escapeVar = function(elm){
   return _.isString(elm) ? elm.replace(/^\\/, "\\\\").replace(/^\?/, "\\?") : elm;
@@ -15,6 +12,14 @@ var unEscapeVar = function(elm){
   return _.isString(elm) ? elm.replace(/^\\/, "") : elm;
 };
 
+var isVar = function(elm){
+  return _.isString(elm) && elm[0] === '?';
+};
+
+var isTheThrowAwayVar = function(elm){
+  return elm === '?_';
+};
+
 var bindToTuple = function(tuple, binding){
   return tuple.map(function(e){
     if(binding.hasOwnProperty(e)){
@@ -22,14 +27,6 @@ var bindToTuple = function(tuple, binding){
     }
     return e;
   });
-};
-
-var isVar = function(elm){
-  return _.isString(elm) && elm[0] === '?';
-};
-
-var isTheThrowAwayVar = function(elm){
-  return elm === '?_';
 };
 
 var parseElement = function(hindex, tuple, i, callback){
