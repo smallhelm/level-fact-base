@@ -184,7 +184,17 @@ var bindKeys = function(matching_keys, q_fact){
   });
 };
 
-var qTuple = function(db, hindex, tuple, orig_binding, callback){
+var qTuple = function(fb, tuple, orig_binding, callback){
+  var db = fb.db;
+  var hindex = fb.hindex;
+
+  if(!_.isArray(tuple)){
+    return callback(new Error("tuple must be an array"));
+  }
+  if(!_.isPlainObject(orig_binding)){
+    return callback(new Error("binding must be a plain object"));
+  }
+
   parseTuple(hindex, bindToTuple(tuple, orig_binding), function(err, q_fact){
     if(err){
       if(err.type === 'NotFoundError'){
@@ -218,46 +228,44 @@ var qTuple = function(db, hindex, tuple, orig_binding, callback){
   });
 };
 
+var q = function(fb, tuples, bindings, callback){
+  if(!_.isArray(tuples)){
+    return callback(new Error("q expects an array of tuples"));
+  }
+  if(!_.isArray(bindings)){
+    return callback(new Error("q expects an array bindings"));
+  }
+
+  var memo = bindings;
+  λ.each.series(tuples, function(tuple, callback){
+    λ.map(memo, function(binding, callback){
+      qTuple(fb, tuple, binding, callback);
+    }, function(err, next_bindings){
+      if(err) return callback(err);
+      memo = _.flatten(next_bindings);
+      callback();
+    });
+  }, function(err){
+    if(err) callback(err);
+    else callback(null, memo);
+  });
+};
+
 module.exports = function(db, options){
   options = options || {};
-
   var hindex = options.HashIndex || HashIndex(db);
-  var qTuple_bound = function(tuple, binding, callback){
-    if(!_.isArray(tuple)){
-      return callback(new Error("tuple must be an array"));
-    }
-    if(!_.isPlainObject(binding)){
-      return callback(new Error("binding must be a plain object"));
-    }
-    qTuple(db, hindex, tuple, binding, callback);
-  };
-  var q = function(tuples, bindings, callback){
-    if(!_.isArray(tuples)){
-      return callback(new Error("q expects an array of tuples"));
-    }
-    if(!_.isArray(bindings)){
-      return callback(new Error("q expects an array bindings"));
-    }
 
-    var memo = bindings;
-    λ.each.series(tuples, function(tuple, callback){
-      λ.map(memo, function(binding, callback){
-        qTuple(db, hindex, tuple, binding, callback);
-      }, function(err, next_bindings){
-        if(err) return callback(err);
-        memo = _.flatten(next_bindings);
-        callback();
-      });
-    }, function(err){
-      if(err) callback(err);
-      else callback(null, memo);
-    });
-  };
+  var fb = {db: db, hindex: hindex};
+
   return {
-    qTuple: qTuple_bound,
-    q: q,
+    qTuple: function(tuple, binding, callback){
+      qTuple(fb, tuple, binding, callback);
+    },
+    q: function(tuples, bindings, callback){
+      q(fb, tuples, bindings, callback);
+    },
     getEntity: function(e, callback){
-      q([["?e", "?a", "?v"]], [{"?e": e}], function(err, results){
+      q(fb, [["?e", "?a", "?v"]], [{"?e": e}], function(err, results){
         if(err) return callback(err);
         var o = {};
         results.forEach(function(result){
