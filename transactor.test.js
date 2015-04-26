@@ -6,6 +6,7 @@ var level = require('levelup');
 var memdown = require('memdown');
 var HashIndex = require('level-hash-index');
 var Transactor = require('./transactor');
+var Connection = require('./connection');
 var genRandomString = require('./utils/genRandomString');
 
 test("ensure schema is loaded on transactor startup", function(t){
@@ -108,7 +109,8 @@ test("ensure transactor warms up with the latest transaction id", function(t){
   Transactor(db, {}, function(err, transactor){
     if(err) return t.end(err);
 
-    var fb = {db: db, hindex: HashIndex(db)};
+    var conn = Connection(db);
+    var fb = conn.snap();
 
     λ.series([
       λ.curry(transactor.transact, [

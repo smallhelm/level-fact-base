@@ -266,4 +266,3 @@ module.exports = {
     });
   }
 };
-//var fb = {db: db, hindex: hindex};

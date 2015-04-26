@@ -3,6 +3,7 @@ var λ = require('contra');
 var inq = require('./inquisitor');
 var Schema = require('./schema');
 var HashIndex = require('level-hash-index');
+var Connection = require('./connection');
 var toPaddedBase36 = require('./utils/toPaddedBase36');
 
 var tupleToDBOps = function(hindex, schema, txn, tuple, callback){
@@ -75,11 +76,12 @@ module.exports = function(db, options, onStartup){
   options = options || {};
 
   var hindex = HashIndex(db);
-  var fb = {db: db, hindex: hindex};
+  var conn = Connection(db, {hindex: hindex});
 
   //warm up the transactor by loading in it's current state
   λ.concurrent({
     transaction_n: function(callback){
+      var fb = conn.snap();
       inq.q(fb, [["?_", "_db/txn-time", "?_", "?txn"]], [{}], function(err, results){
         if(err) return callback(err);
 
@@ -89,6 +91,7 @@ module.exports = function(db, options, onStartup){
     },
     schema: function(callback){
       var schema = Schema(db);
+      var fb = conn.snap();
       //TODO let Schema do the loading and managing of schema attributes
       inq.q(fb, [["?attr_id", "_db/attribute"]], [{}], function(err, results){
         if(err) return callback(err);
@@ -140,6 +143,7 @@ module.exports = function(db, options, onStartup){
               var attr_ids_transacted = _.pluck(fact_tuples.filter(function(fact){
                 return fact[1] === '_db/attribute';
               }), 0);
+              var fb = conn.snap();
               λ.map(attr_ids_transacted, function(id, callback){
                 inq.getEntity(fb, id, callback);
               }, function(err, entities){
