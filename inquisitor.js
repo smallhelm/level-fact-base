@@ -251,29 +251,19 @@ var q = function(fb, tuples, bindings, callback){
   });
 };
 
-module.exports = function(db, options){
-  options = options || {};
-  var hindex = options.HashIndex || HashIndex(db);
-
-  var fb = {db: db, hindex: hindex};
-
-  return {
-    qTuple: function(tuple, binding, callback){
-      qTuple(fb, tuple, binding, callback);
-    },
-    q: function(tuples, bindings, callback){
-      q(fb, tuples, bindings, callback);
-    },
-    getEntity: function(e, callback){
-      q(fb, [["?e", "?a", "?v"]], [{"?e": e}], function(err, results){
-        if(err) return callback(err);
-        var o = {};
-        results.forEach(function(result){
-          o[result["?a"]] = result["?v"];
-          //TODO cardinality = multiple
-        });
-        callback(null, o);
+module.exports = {
+  q: q,
+  qTuple: qTuple,
+  getEntity: function(fb, e, callback){
+    q(fb, [["?e", "?a", "?v"]], [{"?e": e}], function(err, results){
+      if(err) return callback(err);
+      var o = {};
+      results.forEach(function(result){
+        o[result["?a"]] = result["?v"];
+        //TODO cardinality = multiple
       });
-    }
-  };
+      callback(null, o);
+    });
+  }
 };
+//var fb = {db: db, hindex: hindex};

@@ -1,12 +1,12 @@
 var _ = require('lodash');
 var λ = require('contra');
+var inq = require('./inquisitor');
 var test = require('tape');
 var level = require('levelup');
 var memdown = require('memdown');
-var genRandomString = require('./utils/genRandomString');
-
+var HashIndex = require('level-hash-index');
 var Transactor = require('./transactor');
-var Inquisitor = require('./inquisitor');
+var genRandomString = require('./utils/genRandomString');
 
 test("ensure schema is loaded on transactor startup", function(t){
   var db = level(memdown);
@@ -104,12 +104,12 @@ test("ensure transact persists stuff to the db", function(t){
 
 test("ensure transactor warms up with the latest transaction id", function(t){
   var db = level(memdown);
-  var inq = Inquisitor(db);
 
   Transactor(db, {}, function(err, transactor){
-    if(err){
-      return t.end(err);
-    }
+    if(err) return t.end(err);
+
+    var fb = {db: db, hindex: HashIndex(db)};
+
     λ.series([
       λ.curry(transactor.transact, [
         ["01", "_db/attribute", "is"],
@@ -119,27 +119,22 @@ test("ensure transactor warms up with the latest transaction id", function(t){
       λ.curry(transactor.transact, [["bob", "is", "NOT cool"]], {}),
       λ.curry(transactor.transact, [["bob", "is", "cool"]], {})
     ], function(err){
-      if(err){
-        return t.end(err);
-      }
+      if(err) return t.end(err);
 
-      inq.q([["?_", "?_", "?_", "?txn"]], [{}], function(err, results){
-        if(err){
-          return t.end(err);
-        }
+      inq.q(fb, [["?_", "?_", "?_", "?txn"]], [{}], function(err, results){
+        if(err) return t.end(err);
+
         var txns = _.unique(_.pluck(results, "?txn")).sort();
         t.deepEqual(txns, [1, 2, 3, 4]);
 
         //warm up a new transactor to see where it picks up
         Transactor(db, {}, function(err, transactor2){
-          if(err){
-            return t.end(err);
-          }
+          if(err) return t.end(err);
+
           transactor2.transact([["bob", "is", "NOT cool"]], {}, function(err){
-            if(err){
-              return t.end(err);
-            }
-            inq.q([["?_", "?_", "?_", "?txn"]], [{}], function(err, results){
+            if(err) return t.end(err);
+
+            inq.q(fb, [["?_", "?_", "?_", "?txn"]], [{}], function(err, results){
               var txns = _.unique(_.pluck(results, "?txn")).sort();
               t.deepEqual(txns, [1, 2, 3, 4, 5]);
               t.end(err);

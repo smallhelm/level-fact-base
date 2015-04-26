@@ -1,8 +1,8 @@
 var _ = require('lodash');
 var λ = require('contra');
+var inq = require('./inquisitor');
 var Schema = require('./schema');
 var HashIndex = require('level-hash-index');
-var Inquisitor = require('./inquisitor');
 var toPaddedBase36 = require('./utils/toPaddedBase36');
 
 var tupleToDBOps = function(hindex, schema, txn, tuple, callback){
@@ -75,12 +75,12 @@ module.exports = function(db, options, onStartup){
   options = options || {};
 
   var hindex = HashIndex(db);
-  var inq = Inquisitor(db, {HashIndex: hindex});
+  var fb = {db: db, hindex: hindex};
 
   //warm up the transactor by loading in it's current state
   λ.concurrent({
     transaction_n: function(callback){
-      inq.q([["?_", "_db/txn-time", "?_", "?txn"]], [{}], function(err, results){
+      inq.q(fb, [["?_", "_db/txn-time", "?_", "?txn"]], [{}], function(err, results){
         if(err) return callback(err);
 
         var txns = _.pluck(results, "?txn");
@@ -90,10 +90,12 @@ module.exports = function(db, options, onStartup){
     schema: function(callback){
       var schema = Schema(db);
       //TODO let Schema do the loading and managing of schema attributes
-      inq.q([["?attr_id", "_db/attribute"]], [{}], function(err, results){
+      inq.q(fb, [["?attr_id", "_db/attribute"]], [{}], function(err, results){
         if(err) return callback(err);
 
-        λ.map(_.pluck(results, "?attr_id"), inq.getEntity, function(err, entities){
+        λ.map(_.pluck(results, "?attr_id"), function(id, callback){
+          inq.getEntity(fb, id, callback);
+        }, function(err, entities){
           if(err) return callback(err);
 
           entities.forEach(function(entity){
@@ -138,7 +140,9 @@ module.exports = function(db, options, onStartup){
               var attr_ids_transacted = _.pluck(fact_tuples.filter(function(fact){
                 return fact[1] === '_db/attribute';
               }), 0);
-              λ.map(attr_ids_transacted, inq.getEntity, function(err, entities){
+              λ.map(attr_ids_transacted, function(id, callback){
+                inq.getEntity(fb, id, callback);
+              }, function(err, entities){
                 if(err) return callback(err);
 
                 entities.forEach(function(entity){

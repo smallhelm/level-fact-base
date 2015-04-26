@@ -1,12 +1,12 @@
 var _ = require('lodash');
 var λ = require('contra');
+var inq = require('./inquisitor');
 var test = require('tape');
 var level = require('levelup');
 var memdown = require('memdown');
-var genRandomString = require('./utils/genRandomString');
-
-var Inquisitor = require('./inquisitor');
+var HashIndex = require('level-hash-index');
 var Transactor = require('./transactor');
+var genRandomString = require('./utils/genRandomString');
 
 var setupMiddleDataset = function(callback){
   var db = level(memdown);
@@ -36,20 +36,20 @@ var setupMiddleDataset = function(callback){
         [  "janet", "father",      "tag"]
       ], {}, function(err){
         if(err) callback(err);
-        else callback(null, Inquisitor(db));
+        else callback(null, {db: db, hindex: HashIndex(db)});
       });
     });
   });
 };
 
 test("basic qTuple stuff", function(t){
-  setupMiddleDataset(function(err, inq){
+  setupMiddleDataset(function(err, fb){
     if(err) return t.end(err);
     λ.concurrent({
-      axl_mother:           λ.curry(inq.qTuple, ["axl",       "mother", "?mother"], {}),
-      axl_relation_to_mike: λ.curry(inq.qTuple, ["axl",    "?relation", "mike"], {}),
-      mikes_children:       λ.curry(inq.qTuple, ["?children", "father", "?father"], {"?father": "mike"}),
-      axl_has_no_children:  λ.curry(inq.qTuple, ["?children", "father", "axl"], {})
+      axl_mother:           λ.curry(inq.qTuple, fb, ["axl",       "mother", "?mother"], {}),
+      axl_relation_to_mike: λ.curry(inq.qTuple, fb, ["axl",    "?relation", "mike"], {}),
+      mikes_children:       λ.curry(inq.qTuple, fb, ["?children", "father", "?father"], {"?father": "mike"}),
+      axl_has_no_children:  λ.curry(inq.qTuple, fb, ["?children", "father", "axl"], {})
     }, function(err, r){
       t.deepEqual(_.pluck(r.axl_mother, "?mother"), ["frankie"]);
       t.deepEqual(_.pluck(r.axl_relation_to_mike, "?relation"), ["father"]);
@@ -61,18 +61,18 @@ test("basic qTuple stuff", function(t){
 });
 
 test("do some family tree questions", function(t){
-  setupMiddleDataset(function(err, inq){
+  setupMiddleDataset(function(err, fb){
     if(err) return t.end(err);
     λ.concurrent({
-      husbands_and_wifes:   λ.curry(inq.q, [["?child", "mother", "?wife"],
+      husbands_and_wifes:   λ.curry(inq.q, fb, [["?child", "mother", "?wife"],
                                                 ["?child", "father", "?husband"]], [{}]),
 
-      sue_grandfathers:     λ.curry(inq.q, [[    "sue", "father", "?father"],
+      sue_grandfathers:     λ.curry(inq.q, fb, [[    "sue", "father", "?father"],
                                                 [    "sue", "mother", "?mother"],
                                                 ["?mother", "father", "?grandpa1"],
                                                 ["?father", "father", "?grandpa2"]], [{}]),
 
-      sue_siblings:         λ.curry(inq.q, [[    "?sue", "mother", "?mother"],
+      sue_siblings:         λ.curry(inq.q, fb, [[    "?sue", "mother", "?mother"],
                                                 ["?sibling", "mother", "?mother"]], [{"?sue": "sue"}]),
     }, function(err, r){
       t.deepEqual(_.unique(_.map(r.husbands_and_wifes, function(result){
@@ -99,13 +99,13 @@ test("queries using txn", function(t){
       λ.curry(transactor.transact, [["prophet", "is",     "snow"]], {})
     ], function(err){
       if(err) return t.end(err);
-      var inq = Inquisitor(db);
+      var fb = {db: db, hindex: HashIndex(db)};
       λ.concurrent({
-        first:          λ.curry(inq.q, [["prophet", "is", "?name",      2]], [{}]),
-        third:          λ.curry(inq.q, [["prophet", "is", "?name",      4]], [{}]),
-        when_was_young: λ.curry(inq.q, [["prophet", "is", "young", "?txn"]], [{}]),
-        who_is_latest:  λ.curry(inq.q, [["prophet", "is", "?name"        ]], [{}]),
-        names_in_order: λ.curry(inq.q, [["prophet", "is", "?name", "?txn"]], [{}])
+        first:          λ.curry(inq.q, fb, [["prophet", "is", "?name",      2]], [{}]),
+        third:          λ.curry(inq.q, fb, [["prophet", "is", "?name",      4]], [{}]),
+        when_was_young: λ.curry(inq.q, fb, [["prophet", "is", "young", "?txn"]], [{}]),
+        who_is_latest:  λ.curry(inq.q, fb, [["prophet", "is", "?name"        ]], [{}]),
+        names_in_order: λ.curry(inq.q, fb, [["prophet", "is", "?name", "?txn"]], [{}])
       }, function(err, r){
         t.deepEqual(_.pluck(r.first, "?name"), ["smith"]);
         t.deepEqual(_.pluck(r.third, "?name"), ["taylor"]);
@@ -137,10 +137,10 @@ test("getEntity", function(t){
       λ.curry(transactor.transact, [["u0", "email", "new@email.com"]], {})
     ], function(err){
       if(err) return t.end(err);
-      var inq = Inquisitor(db);
+      var fb = {db: db, hindex: HashIndex(db)};
       λ.concurrent({
-        u0: λ.curry(inq.getEntity, "u0"),
-        u1: λ.curry(inq.getEntity, "u1")
+        u0: λ.curry(inq.getEntity, fb, "u0"),
+        u1: λ.curry(inq.getEntity, fb, "u1")
       }, function(err, r){
         t.deepEqual(r.u0, {name: "andy", email: "new@email.com"});
         t.deepEqual(r.u1, {name: "opie", email: "opie@email.com"});
@@ -151,13 +151,13 @@ test("getEntity", function(t){
 });
 
 test("the throw-away binding", function(t){
-  setupMiddleDataset(function(err, inq){
+  setupMiddleDataset(function(err, fb){
     if(err) return t.end(err);
     λ.concurrent({
-      all_entities: λ.curry(inq.q, [["?entity"]], [{}]),
-      all_fathers:  λ.curry(inq.q, [["?_", "father", "?father"]], [{}]),
-      sue_siblings: λ.curry(inq.q, [[    "?sue", "mother", "?_"],
-                                    ["?sibling", "mother", "?_"]], [{"?sue": "sue"}])
+      all_entities: λ.curry(inq.q, fb, [["?entity"]], [{}]),
+      all_fathers:  λ.curry(inq.q, fb, [["?_", "father", "?father"]], [{}]),
+      sue_siblings: λ.curry(inq.q, fb, [[    "?sue", "mother", "?_"],
+                                        ["?sibling", "mother", "?_"]], [{"?sue": "sue"}])
     }, function(err, r){
       t.deepEqual(_.pluck(r.all_entities, "?entity").sort(), ['01', '02', '_txid000001', '_txid000002', 'axl', 'brick', 'frankie', 'janet', 'mike', 'rusty', 'sue']);
       t.deepEqual(_.sortBy(r.all_fathers, "?father"), [{"?father": 'big mike'}, {"?father": 'mike'}, {"?father": 'tag'}], "should not have ?_ bound to anything");
@@ -186,17 +186,17 @@ test("escaping '?...' values", function(t){
                                     ["5", "name", "?_"]], {})
     ], function(err){
       if(err) return t.end(err);
-      var inq = Inquisitor(db);
+      var fb = {db: db, hindex: HashIndex(db)};
       λ.concurrent({
-        should_be_a_var:      λ.curry(inq.q, [["?id", "name", "?notavar"]], [{}]),
-        bind_it:              λ.curry(inq.q, [["?id", "name", "?name"]], [{"?name": "?notavar"}]),
-        escape_it:            λ.curry(inq.q, [["?id", "name", "\\?notavar"]], [{}]),
-        bind_it2:             λ.curry(inq.q, [["?id", "name", "?name"]], [{"?name": "\\?notavar"}]),
-        not_actually_escaped: λ.curry(inq.q, [["?id", "name", "\\\\?notavar"]], [{}]),
-        double_slash:         λ.curry(inq.q, [["?id", "name", "\\\\\\"]], [{}]),
-        double_slash_bind:    λ.curry(inq.q, [["?id", "name", "?name"]], [{"?name": "\\\\"}]),
-        not_a_throw_away:     λ.curry(inq.q, [["?id", "name", "\\?_"]], [{}]),
-        not_a_throw_away2:    λ.curry(inq.q, [["?id", "name", "?name"]], [{"?name": "?_"}]),
+        should_be_a_var:      λ.curry(inq.q, fb, [["?id", "name", "?notavar"]], [{}]),
+        bind_it:              λ.curry(inq.q, fb, [["?id", "name", "?name"]], [{"?name": "?notavar"}]),
+        escape_it:            λ.curry(inq.q, fb, [["?id", "name", "\\?notavar"]], [{}]),
+        bind_it2:             λ.curry(inq.q, fb, [["?id", "name", "?name"]], [{"?name": "\\?notavar"}]),
+        not_actually_escaped: λ.curry(inq.q, fb, [["?id", "name", "\\\\?notavar"]], [{}]),
+        double_slash:         λ.curry(inq.q, fb, [["?id", "name", "\\\\\\"]], [{}]),
+        double_slash_bind:    λ.curry(inq.q, fb, [["?id", "name", "?name"]], [{"?name": "\\\\"}]),
+        not_a_throw_away:     λ.curry(inq.q, fb, [["?id", "name", "\\?_"]], [{}]),
+        not_a_throw_away2:    λ.curry(inq.q, fb, [["?id", "name", "?name"]], [{"?name": "?_"}]),
       }, function(err, r){
         t.deepEqual(r.should_be_a_var, [{"?id": "1", "?notavar": "?notavar"}, {"?id": "2", "?notavar": "notavar"}, {"?id": "3", "?notavar": "\\?notavar"}, {"?id": "4", "?notavar": "\\\\"}, {"?id": "5", "?notavar": "?_"}]);
         t.deepEqual(r.bind_it, [{"?id": "1", "?name": "?notavar"}]);
