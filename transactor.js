@@ -1,13 +1,13 @@
 var _ = require('lodash');
 var λ = require('contra');
 var inq = require('./inquisitor');
-var Schema = require('./schema');
+var SchemaUtils = require('./schema-utils');
 var HashIndex = require('level-hash-index');
 var Connection = require('./connection');
 var toPaddedBase36 = require('./utils/toPaddedBase36');
 
-var tupleToDBOps = function(hindex, schema, txn, tuple, callback){
-  λ.map([tuple[0], tuple[1], tuple[2]], hindex.put, function(err, hash_datas){
+var tupleToDBOps = function(fb, txn, tuple, callback){
+  λ.map([tuple[0], tuple[1], tuple[2]], fb.hindex.put, function(err, hash_datas){
     if(err) return callback(err);
 
     var ops = [];
@@ -22,7 +22,7 @@ var tupleToDBOps = function(hindex, schema, txn, tuple, callback){
       }
     });
 
-    schema.getIndexesForAttribute(tuple[1], function(err, indexes){
+    SchemaUtils.getIndexesForAttribute(fb, tuple[1], function(err, indexes){
       if(err) return callback(err);
 
       indexes.forEach(function(index){
@@ -35,21 +35,21 @@ var tupleToDBOps = function(hindex, schema, txn, tuple, callback){
   });
 };
 
-var validateAndEncodeFactTuple = function(fact_tuple, schema, callback){
+var validateAndEncodeFactTuple = function(fb, fact_tuple, callback){
   if(!_.isArray(fact_tuple) || fact_tuple.length < 3 || fact_tuple.length > 4){//eavo
     return callback(new Error("fact_tuple must be an array defining EAV or EAVO"));
   }
 
   //entity
   var e = fact_tuple[0];
-  if(!schema.types["Entity_ID"].validate(e)){
+  if(!fb.types["Entity_ID"].validate(e)){
     return callback(new Error("Not a valid entity id"));
   }
-  e = schema.types["Entity_ID"].encode(e);
+  e = fb.types["Entity_ID"].encode(e);
 
   //attribute
   var a = fact_tuple[1];
-  schema.getTypeForAttribute(a, function(err, type){
+  SchemaUtils.getTypeForAttribute(fb, a, function(err, type){
     if(err) return callback(err);
 
     //value
@@ -66,9 +66,9 @@ var validateAndEncodeFactTuple = function(fact_tuple, schema, callback){
   });
 };
 
-var validateAndEncodeFactTuples = function(fact_tuples, schema, callback){
+var validateAndEncodeFactTuples = function(fb, fact_tuples, callback){
   λ.map(fact_tuples, function(tuple, cb){
-    validateAndEncodeFactTuple(tuple, schema, cb);
+    validateAndEncodeFactTuple(fb, tuple, cb);
   }, callback);
 };
 
@@ -80,80 +80,59 @@ module.exports = function(db, options, onStartup){
   Connection(db, {hindex: hindex}, function(err, conn){
     if(err) return onStartup(err);
 
-    //warm up the transactor by loading in it's current state
-    λ.concurrent({
-      schema: function(callback){
-        var schema = Schema(db);
+    onStartup(null, {
+      connection: conn,
+      transact: function(fact_tuples, tx_data, callback){
+
         var fb = conn.snap();
-        //TODO let Schema do the loading and managing of schema attributes
-        inq.q(fb, [["?attr_id", "_db/attribute"]], [{}], function(err, results){
+
+        conn.update(fb.txn + 1);//TODO find a better way i.e. maybe a list of pending txns? OR who cares if it fails, so long as the number still is higher than the previous?
+        var txn = toPaddedBase36(fb.txn + 1, 6);//for lexo-graphic sorting
+
+        //store facts about the transaction
+        tx_data["_db/txn-time"] = new Date();
+        _.each(tx_data, function(val, attr){
+          fact_tuples.push(["_txid" + txn, attr, val]);
+        });
+
+        validateAndEncodeFactTuples(fb, fact_tuples, function(err, fact_tuples){
           if(err) return callback(err);
 
-          λ.map(_.pluck(results, "?attr_id"), function(id, callback){
-            inq.getEntity(fb, id, callback);
-          }, function(err, entities){
+          λ.map(fact_tuples, function(tuple, callback){
+            tupleToDBOps(fb, txn, tuple, callback);
+          }, function(err, ops){
             if(err) return callback(err);
 
-            entities.forEach(function(entity){
-              schema.schema[entity["_db/attribute"]] = entity;
-            });
-            callback(null, schema);
-          });
-        });
-      }
-    }, function(err, transactor_state){
-      if(err) return onStartup(err);
-
-      var schema = transactor_state.schema;
-
-      onStartup(null, {
-        connection: conn,
-        transact: function(fact_tuples, tx_data, callback){
-
-          var transaction_n = conn.snap().txn;
-          transaction_n++;//TODO find a better way i.e. maybe a list of pending txns? OR who cares if it fails, so long as the number still is higher than the previous?
-          conn.update(transaction_n);
-          var txn = toPaddedBase36(transaction_n, 6);//for lexo-graphic sorting
-
-          //store facts about the transaction
-          tx_data["_db/txn-time"] = new Date();
-          _.each(tx_data, function(val, attr){
-            fact_tuples.push(["_txid" + txn, attr, val]);
-          });
-
-          validateAndEncodeFactTuples(fact_tuples, schema, function(err, fact_tuples){
-            if(err) return callback(err);
-
-            λ.map(fact_tuples, function(tuple, callback){
-              tupleToDBOps(hindex, schema, txn, tuple, callback);
-            }, function(err, ops){
+            db.batch(_.flatten(ops), function(err){
               if(err) return callback(err);
 
-              db.batch(_.flatten(ops), function(err){
+              //
+              //TODO undo this hack
+              var schema = conn.snap().schema;
+              //TODO undo this hack
+              //
+              var attr_ids_transacted = _.pluck(fact_tuples.filter(function(fact){
+                return fact[1] === '_db/attribute';
+              }), 0);
+              var fb = conn.snap();
+              λ.map(attr_ids_transacted, function(id, callback){
+                inq.getEntity(fb, id, callback);
+              }, function(err, entities){
                 if(err) return callback(err);
 
-                //TODO
-                //TODO more optimal way of updating the schema
-                //TODO
-                var attr_ids_transacted = _.pluck(fact_tuples.filter(function(fact){
-                  return fact[1] === '_db/attribute';
-                }), 0);
-                var fb = conn.snap();
-                λ.map(attr_ids_transacted, function(id, callback){
-                  inq.getEntity(fb, id, callback);
-                }, function(err, entities){
-                  if(err) return callback(err);
-
-                  entities.forEach(function(entity){
-                    schema.schema[entity["_db/attribute"]] = entity;
-                  });
-                  callback();
+                entities.forEach(function(entity){
+                  //
+                  //TODO undo this hack
+                  schema[entity["_db/attribute"]] = entity;
+                  //TODO undo this hack
+                  //
                 });
+                callback();
               });
             });
           });
-        }
-      });
+        });
+      }
     });
   });
 };
