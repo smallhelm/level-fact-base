@@ -120,7 +120,6 @@ test("queries using txn", function(t){
 test("queries using fb_versions", function(t){
   setupProphetDataset(function(err, fb_versions){
     if(err) return t.end(err);
-    var fb = _.last(fb_versions);
     λ.map(fb_versions, function(fb, callback){
       //run the same query on each version of the db
       inq.q(fb, [["prophet", "is", "?name"]], [{}], callback);

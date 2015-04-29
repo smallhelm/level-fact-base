@@ -78,34 +78,43 @@ module.exports = function(db, options, callback){
 
   var hindex = options.hindex || HashIndex(db);
 
-  getLatestedTxn(db, function(err, latest_transaction_n){
-    if(err) return callback(err);
-
-    loadUserSchema({
-      txn: latest_transaction_n,
-      schema: db_schema,
+  var makeFB = function(txn, schema){
+    return {
+      txn: txn,
+      types: db_types,
+      schema: schema,
 
       db: db,
       hindex: hindex
-    }, function(err, user_schema){
-      if(err) return callback(err);
+    };
+  };
 
-      var schema = _.assign({}, user_schema, db_schema);
+  var loadSchemaAsOf = function(txn, callback){
+    loadUserSchema(makeFB(txn, db_schema), function(err, user_schema){
+      if(err) return callback(err);
+      callback(null, _.assign({}, user_schema, db_schema));
+    });
+  };
+
+  getLatestedTxn(db, function(err, latest_transaction_n){
+    if(err) return callback(err);
+
+    loadSchemaAsOf(latest_transaction_n, function(err, latest_schema){
+      if(err) return callback(err);
 
       callback(null, {
         update: function(new_txn, schema_changes){
           latest_transaction_n = new_txn;
-          schema = _.assign({}, schema, schema_changes);
+          latest_schema = _.assign({}, latest_schema, schema_changes);
         },
         snap: function(){
-          return {
-            txn: latest_transaction_n,
-            types: db_types,
-            schema: schema,
-
-            db: db,
-            hindex: hindex
-          };
+          return makeFB(latest_transaction_n, latest_schema);
+        },
+        asOf: function(txn, callback){
+          loadSchemaAsOf(txn, function(err, schema){
+            if(err) return callback(err);
+            callback(null, makeFB(txn, schema));
+          });
         }
       });
     });
