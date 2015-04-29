@@ -190,7 +190,7 @@ test("the throw-away binding", function(t){
       sue_siblings: λ.curry(inq.q, fb, [[    "?sue", "mother", "?_"],
                                         ["?sibling", "mother", "?_"]], [{"?sue": "sue"}])
     }, function(err, r){
-      t.deepEqual(_.pluck(r.all_entities, "?entity").sort(), ['01', '02', '_txid000001', '_txid000002', 'axl', 'brick', 'frankie', 'janet', 'mike', 'rusty', 'sue']);
+      t.deepEqual(_.pluck(r.all_entities, "?entity").sort(), ['01', '02', '_txid1', '_txid2', 'axl', 'brick', 'frankie', 'janet', 'mike', 'rusty', 'sue']);
       t.deepEqual(_.sortBy(r.all_fathers, "?father"), [{"?father": 'big mike'}, {"?father": 'mike'}, {"?father": 'tag'}], "should not have ?_ bound to anything");
       t.deepEqual(_.sortBy(r.sue_siblings, "?sibling"), [{'?sibling': 'axl', '?sue': 'sue'},
                                                          {'?sibling': 'brick', '?sue': 'sue'},

@@ -93,8 +93,9 @@ module.exports = function(db, options, callback){
       var schema = _.assign({}, user_schema, db_schema);
 
       callback(null, {
-        update: function(t){
-          latest_transaction_n = t;
+        update: function(new_txn, schema_changes){
+          latest_transaction_n = new_txn;
+          schema = _.assign({}, schema, schema_changes);
         },
         snap: function(){
           return {

@@ -12,7 +12,7 @@ var tupleToDBOps = function(fb, txn, tuple, callback){
 
     var ops = [];
     var fact = {
-      t: txn,
+      t: toPaddedBase36(txn, 6),//for lexo-graphic sorting
       o: tuple[3] === false ? 0 : 1//default to 1
     };
     'eav'.split('').forEach(function(k, i){
@@ -72,6 +72,16 @@ var validateAndEncodeFactTuples = function(fb, fact_tuples, callback){
   }, callback);
 };
 
+var validateAndEncodeFactTuplesToDBOps = function(fb, txn, fact_tuples, callback){
+  validateAndEncodeFactTuples(fb, fact_tuples, function(err, fact_tuples){
+    if(err) return callback(err);
+
+    λ.map(fact_tuples, function(tuple, callback){
+      tupleToDBOps(fb, txn, tuple, callback);
+    }, callback);
+  });
+};
+
 module.exports = function(db, options, onStartup){
   options = options || {};
 
@@ -86,8 +96,7 @@ module.exports = function(db, options, onStartup){
 
         var fb = conn.snap();
 
-        conn.update(fb.txn + 1);//TODO find a better way i.e. maybe a list of pending txns? OR who cares if it fails, so long as the number still is higher than the previous?
-        var txn = toPaddedBase36(fb.txn + 1, 6);//for lexo-graphic sorting
+        var txn = fb.txn + 1;//TODO find a better way i.e. maybe a list of pending txns? OR who cares if it fails, so long as the number still is higher than the previous?
 
         //store facts about the transaction
         tx_data["_db/txn-time"] = new Date();
@@ -95,40 +104,36 @@ module.exports = function(db, options, onStartup){
           fact_tuples.push(["_txid" + txn, attr, val]);
         });
 
-        validateAndEncodeFactTuples(fb, fact_tuples, function(err, fact_tuples){
+        validateAndEncodeFactTuplesToDBOps(fb, txn, fact_tuples, function(err, ops){
           if(err) return callback(err);
 
-          λ.map(fact_tuples, function(tuple, callback){
-            tupleToDBOps(fb, txn, tuple, callback);
-          }, function(err, ops){
+          db.batch(_.flatten(ops), function(err){
             if(err) return callback(err);
 
-            db.batch(_.flatten(ops), function(err){
+            var attr_ids_transacted = _.pluck(fact_tuples.filter(function(fact){
+              return fact[1] === '_db/attribute';
+            }), 0);
+
+            if(attr_ids_transacted.length === 0){
+              conn.update(txn, {});
+              return callback(null, conn.snap);
+            }
+            conn.update(txn, {});fb = conn.snap();//hack so we can read the new schema entities
+            λ.map(attr_ids_transacted, function(id, callback){
+              inq.getEntity(fb, id, callback);
+            }, function(err, entities){
               if(err) return callback(err);
 
-              //
-              //TODO undo this hack
-              var schema = conn.snap().schema;
-              //TODO undo this hack
-              //
-              var attr_ids_transacted = _.pluck(fact_tuples.filter(function(fact){
-                return fact[1] === '_db/attribute';
-              }), 0);
-              var fb = conn.snap();
-              λ.map(attr_ids_transacted, function(id, callback){
-                inq.getEntity(fb, id, callback);
-              }, function(err, entities){
-                if(err) return callback(err);
-
-                entities.forEach(function(entity){
-                  //
-                  //TODO undo this hack
-                  schema[entity["_db/attribute"]] = entity;
-                  //TODO undo this hack
-                  //
-                });
-                callback();
+              var schema_changes = {};
+              entities.forEach(function(entity){
+                if(_.has(entity, "_db/attribute")){
+                  schema_changes[entity["_db/attribute"]] = entity;
+                }
               });
+
+              conn.update(txn, schema_changes);//TODO find a better way to avoid race conditions when multiple transactions are running at once
+
+              callback(null, conn.snap());
             });
           });
         });
