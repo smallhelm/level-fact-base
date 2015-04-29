@@ -52,7 +52,11 @@ module.exports = function(db, config){
     },
     getIndexesForAttribute: function(a, callback){
       //TODO implement the right way
-      callback(null, ['eavto', 'aevto']);
+      callback(null, [
+        'eavto',
+        'aevto',
+        'teavo'//log
+      ]);
     }
   };
 };

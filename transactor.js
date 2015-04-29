@@ -72,6 +72,24 @@ var validateAndEncodeFactTuples = function(fact_tuples, schema, callback){
   }, callback);
 };
 
+var getLatestedTxn = function(db, callback){
+  var stream = db.createReadStream({
+    keys: true,
+    values: false,
+    reverse: true,
+    gte: 'teavo!\x00',
+    lte: 'teavo!\xFF',
+  }).on('data', function(data){
+    var txn = parseInt(data.split('!')[1], 36);
+    callback(null, txn);
+    stream.destroy();
+  }).on('error', function(err){
+    callback(err);
+  }).on('end', function(){
+    callback(null, 0);
+  });
+};
+
 module.exports = function(db, options, onStartup){
   options = options || {};
 
@@ -81,13 +99,7 @@ module.exports = function(db, options, onStartup){
   //warm up the transactor by loading in it's current state
   λ.concurrent({
     transaction_n: function(callback){
-      var fb = conn.snap();
-      inq.q(fb, [["?_", "_db/txn-time", "?_", "?txn"]], [{}], function(err, results){
-        if(err) return callback(err);
-
-        var txns = _.pluck(results, "?txn");
-        callback(null, txns.length === 0 ? 0 : _.max(txns));
-      });
+      getLatestedTxn(db, callback);
     },
     schema: function(callback){
       var schema = Schema(db);
