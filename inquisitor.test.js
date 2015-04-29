@@ -42,6 +42,30 @@ var setupMiddleDataset = function(callback){
   });
 };
 
+var prophets = ["smith", "young", "taylor", "woodruff", "snow", "f. smith", "grant", "a. smith", "mckay", "fielding smith", "lee", "kimball", "benson", "hunter", "hinckley", "monson"];
+var setupProphetDataset = function(callback){
+  var db = level(memdown);
+  Transactor(db, {}, function(err, transactor){
+    if(err) return t.end(err);
+    λ.series([
+      function(callback){
+        transactor.transact([["01", "_db/attribute", "is"],
+                             ["01", "_db/type"     , "String"]], {}, function(err){
+          if(err) return callback(err);
+          callback(null, transactor.connection.snap());
+        });
+      }
+    ].concat(prophets.map(function(name){
+      return function(callback){
+        transactor.transact([["prophet", "is", name]], {}, function(err){
+          if(err) return callback(err);
+          callback(null, transactor.connection.snap());
+        });
+      };
+    })), callback);
+  });
+};
+
 test("basic qTuple stuff", function(t){
   setupMiddleDataset(function(err, fb){
     if(err) return t.end(err);
@@ -86,34 +110,41 @@ test("do some family tree questions", function(t){
 });
 
 test("queries using txn", function(t){
-  var db = level(memdown);
-  Transactor(db, {}, function(err, transactor){
+  setupProphetDataset(function(err, fb_versions){
     if(err) return t.end(err);
-    λ.series([
-      λ.curry(transactor.transact, [["01", "_db/attribute", "is"],
-                                    ["01", "_db/type"     , "String"]], {}),
-      λ.curry(transactor.transact, [["prophet", "is",    "smith"]], {}),
-      λ.curry(transactor.transact, [["prophet", "is",    "young"]], {}),
-      λ.curry(transactor.transact, [["prophet", "is",   "taylor"]], {}),
-      λ.curry(transactor.transact, [["prophet", "is", "woodruff"]], {}),
-      λ.curry(transactor.transact, [["prophet", "is",     "snow"]], {})
-    ], function(err){
-      if(err) return t.end(err);
-      var fb = transactor.connection.snap();
-      λ.concurrent({
-        first:          λ.curry(inq.q, fb, [["prophet", "is", "?name",      2]], [{}]),
-        third:          λ.curry(inq.q, fb, [["prophet", "is", "?name",      4]], [{}]),
-        when_was_young: λ.curry(inq.q, fb, [["prophet", "is", "young", "?txn"]], [{}]),
-        who_is_latest:  λ.curry(inq.q, fb, [["prophet", "is", "?name"        ]], [{}]),
-        names_in_order: λ.curry(inq.q, fb, [["prophet", "is", "?name", "?txn"]], [{}])
-      }, function(err, r){
-        t.deepEqual(_.pluck(r.first, "?name"), ["smith"]);
-        t.deepEqual(_.pluck(r.third, "?name"), ["taylor"]);
-        t.deepEqual(_.pluck(r.when_was_young, "?txn"), [3]);
-        t.deepEqual(_.pluck(r.who_is_latest, "?name"), ["snow"]);
-        t.deepEqual(_.pluck(_.sortBy(r.names_in_order, "?txn"), "?name"), ["smith", "young", "taylor", "woodruff", "snow"]);
-        t.end(err);
+    var fb = _.last(fb_versions);
+    λ.concurrent({
+      first:          λ.curry(inq.q, fb, [["prophet", "is", "?name",      2]], [{}]),
+      third:          λ.curry(inq.q, fb, [["prophet", "is", "?name",      4]], [{}]),
+      when_was_young: λ.curry(inq.q, fb, [["prophet", "is", "young", "?txn"]], [{}]),
+      who_is_current: λ.curry(inq.q, fb, [["prophet", "is", "?name"        ]], [{}]),
+      names_in_order: λ.curry(inq.q, fb, [["prophet", "is", "?name", "?txn"]], [{}])
+    }, function(err, r){
+      t.deepEqual(_.pluck(r.first, "?name"), ["smith"]);
+      t.deepEqual(_.pluck(r.third, "?name"), ["taylor"]);
+      t.deepEqual(_.pluck(r.when_was_young, "?txn"), [3]);
+      t.deepEqual(_.pluck(r.who_is_current, "?name"), ["monson"]);
+      t.deepEqual(_.pluck(_.sortBy(r.names_in_order, "?txn"), "?name"), prophets);
+      t.end(err);
+    });
+  });
+});
+
+test("queries using fb_versions", function(t){
+  setupProphetDataset(function(err, fb_versions){
+    if(err) return t.end(err);
+    var fb = _.last(fb_versions);
+    λ.map(fb_versions, function(fb, callback){
+      //run the same query on each version of the db
+      inq.q(fb, [["prophet", "is", "?name"]], [{}], callback);
+    }, function(err, r){
+      r.map(function(bindings, i){
+        t.deepEqual(
+          bindings,
+          i === 0 ? [] : [{"?name": prophets[i - 1]}]
+        );
       });
+      t.end(err);
     });
   });
 });

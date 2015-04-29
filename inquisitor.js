@@ -146,7 +146,7 @@ var keyToFact = function(key){
   return fact;
 };
 
-var bindKeys = function(matching_keys, q_fact){
+var bindKeys = function(matching_keys, q_fact, as_of_txn){
   var binding = {};//to ensure unique-ness
 
   var only_the_latest = q_fact.t.is_blank;//TODO also based on the cardiality of q_fact.a's schema
@@ -160,6 +160,10 @@ var bindKeys = function(matching_keys, q_fact){
 
   matching_keys.forEach(function(key, i){
     var fact = keyToFact(key);
+
+    if(fact.t.value > as_of_txn){
+      return;//this fact is too new, so ignore it
+    }
 
     var key_for_latest_for = only_the_latest ? fact.e + fact.a : i;
 
@@ -187,6 +191,7 @@ var bindKeys = function(matching_keys, q_fact){
 var qTuple = function(fb, tuple, orig_binding, callback){
   var db = fb.db;
   var hindex = fb.hindex;
+  var as_of_txn = fb.txn;
 
   if(!_.isArray(tuple)){
     return callback(new Error("tuple must be an array"));
@@ -208,7 +213,7 @@ var qTuple = function(fb, tuple, orig_binding, callback){
     findMatchingKeys(db, toMatcher(index_to_use, q_fact), function(err, matching_keys){
       if(err) return callback(err);
 
-      var bindings = bindKeys(matching_keys, q_fact);
+      var bindings = bindKeys(matching_keys, q_fact, as_of_txn);
 
       //de-hash the bindings
       λ.map(bindings, function(binding, callback){
