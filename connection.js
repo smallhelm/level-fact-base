@@ -34,6 +34,9 @@ module.exports = function(db, options, callback){
     var latest_transaction_n = data.latest_transaction_n;
 
     callback(null, {
+      update: function(t){
+        latest_transaction_n = t;
+      },
       snap: function(){
         return {
           txn: latest_transaction_n,

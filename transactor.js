@@ -105,13 +105,14 @@ module.exports = function(db, options, onStartup){
       if(err) return onStartup(err);
 
       var schema = transactor_state.schema;
-      var transaction_n = conn.snap().txn;
 
       onStartup(null, {
         connection: conn,
         transact: function(fact_tuples, tx_data, callback){
 
+          var transaction_n = conn.snap().txn;
           transaction_n++;//TODO find a better way i.e. maybe a list of pending txns? OR who cares if it fails, so long as the number still is higher than the previous?
+          conn.update(transaction_n);
           var txn = toPaddedBase36(transaction_n, 6);//for lexo-graphic sorting
 
           //store facts about the transaction
