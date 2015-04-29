@@ -72,104 +72,87 @@ var validateAndEncodeFactTuples = function(fact_tuples, schema, callback){
   }, callback);
 };
 
-var getLatestedTxn = function(db, callback){
-  var stream = db.createReadStream({
-    keys: true,
-    values: false,
-    reverse: true,
-    gte: 'teavo!\x00',
-    lte: 'teavo!\xFF',
-  }).on('data', function(data){
-    var txn = parseInt(data.split('!')[1], 36);
-    callback(null, txn);
-    stream.destroy();
-  }).on('error', function(err){
-    callback(err);
-  }).on('end', function(){
-    callback(null, 0);
-  });
-};
-
 module.exports = function(db, options, onStartup){
   options = options || {};
 
   var hindex = HashIndex(db);
-  var conn = Connection(db, {hindex: hindex});
 
-  //warm up the transactor by loading in it's current state
-  λ.concurrent({
-    transaction_n: function(callback){
-      getLatestedTxn(db, callback);
-    },
-    schema: function(callback){
-      var schema = Schema(db);
-      var fb = conn.snap();
-      //TODO let Schema do the loading and managing of schema attributes
-      inq.q(fb, [["?attr_id", "_db/attribute"]], [{}], function(err, results){
-        if(err) return callback(err);
-
-        λ.map(_.pluck(results, "?attr_id"), function(id, callback){
-          inq.getEntity(fb, id, callback);
-        }, function(err, entities){
-          if(err) return callback(err);
-
-          entities.forEach(function(entity){
-            schema.schema[entity["_db/attribute"]] = entity;
-          });
-          callback(null, schema);
-        });
-      });
-    }
-  }, function(err, transactor_state){
+  Connection(db, {hindex: hindex}, function(err, conn){
     if(err) return onStartup(err);
 
-    var schema = transactor_state.schema;
-    var transaction_n = transactor_state.transaction_n;
-
-    onStartup(null, {
-      transact: function(fact_tuples, tx_data, callback){
-
-        transaction_n++;//TODO find a better way i.e. maybe a list of pending txns? OR who cares if it fails, so long as the number still is higher than the previous?
-        var txn = toPaddedBase36(transaction_n, 6);//for lexo-graphic sorting
-
-        //store facts about the transaction
-        tx_data["_db/txn-time"] = new Date();
-        _.each(tx_data, function(val, attr){
-          fact_tuples.push(["_txid" + txn, attr, val]);
-        });
-
-        validateAndEncodeFactTuples(fact_tuples, schema, function(err, fact_tuples){
+    //warm up the transactor by loading in it's current state
+    λ.concurrent({
+      schema: function(callback){
+        var schema = Schema(db);
+        var fb = conn.snap();
+        //TODO let Schema do the loading and managing of schema attributes
+        inq.q(fb, [["?attr_id", "_db/attribute"]], [{}], function(err, results){
           if(err) return callback(err);
 
-          λ.map(fact_tuples, function(tuple, callback){
-            tupleToDBOps(hindex, schema, txn, tuple, callback);
-          }, function(err, ops){
+          λ.map(_.pluck(results, "?attr_id"), function(id, callback){
+            inq.getEntity(fb, id, callback);
+          }, function(err, entities){
             if(err) return callback(err);
 
-            db.batch(_.flatten(ops), function(err){
-              if(err) return callback(err);
-
-              //TODO
-              //TODO more optimal way of updating the schema
-              //TODO
-              var attr_ids_transacted = _.pluck(fact_tuples.filter(function(fact){
-                return fact[1] === '_db/attribute';
-              }), 0);
-              var fb = conn.snap();
-              λ.map(attr_ids_transacted, function(id, callback){
-                inq.getEntity(fb, id, callback);
-              }, function(err, entities){
-                if(err) return callback(err);
-
-                entities.forEach(function(entity){
-                  schema.schema[entity["_db/attribute"]] = entity;
-                });
-                callback();
-              });
+            entities.forEach(function(entity){
+              schema.schema[entity["_db/attribute"]] = entity;
             });
+            callback(null, schema);
           });
         });
       }
+    }, function(err, transactor_state){
+      if(err) return onStartup(err);
+
+      var schema = transactor_state.schema;
+      var transaction_n = conn.snap().txn;
+
+      onStartup(null, {
+        connection: conn,
+        transact: function(fact_tuples, tx_data, callback){
+
+          transaction_n++;//TODO find a better way i.e. maybe a list of pending txns? OR who cares if it fails, so long as the number still is higher than the previous?
+          var txn = toPaddedBase36(transaction_n, 6);//for lexo-graphic sorting
+
+          //store facts about the transaction
+          tx_data["_db/txn-time"] = new Date();
+          _.each(tx_data, function(val, attr){
+            fact_tuples.push(["_txid" + txn, attr, val]);
+          });
+
+          validateAndEncodeFactTuples(fact_tuples, schema, function(err, fact_tuples){
+            if(err) return callback(err);
+
+            λ.map(fact_tuples, function(tuple, callback){
+              tupleToDBOps(hindex, schema, txn, tuple, callback);
+            }, function(err, ops){
+              if(err) return callback(err);
+
+              db.batch(_.flatten(ops), function(err){
+                if(err) return callback(err);
+
+                //TODO
+                //TODO more optimal way of updating the schema
+                //TODO
+                var attr_ids_transacted = _.pluck(fact_tuples.filter(function(fact){
+                  return fact[1] === '_db/attribute';
+                }), 0);
+                var fb = conn.snap();
+                λ.map(attr_ids_transacted, function(id, callback){
+                  inq.getEntity(fb, id, callback);
+                }, function(err, entities){
+                  if(err) return callback(err);
+
+                  entities.forEach(function(entity){
+                    schema.schema[entity["_db/attribute"]] = entity;
+                  });
+                  callback();
+                });
+              });
+            });
+          });
+        }
+      });
     });
   });
 };

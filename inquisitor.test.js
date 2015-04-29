@@ -5,14 +5,12 @@ var test = require('tape');
 var level = require('levelup');
 var memdown = require('memdown');
 var Transactor = require('./transactor');
-var Connection = require('./connection');
 var genRandomString = require('./utils/genRandomString');
 
 var setupMiddleDataset = function(callback){
   var db = level(memdown);
   Transactor(db, {}, function(err, transactor){
     if(err) return callback(err);
-    var conn = Connection(db);
 
     transactor.transact([
       ["01", "_db/attribute", "father"],
@@ -38,8 +36,7 @@ var setupMiddleDataset = function(callback){
         [  "janet", "father",      "tag"]
       ], {}, function(err){
         if(err) callback(err);
-        else callback(null, conn.snap());
-
+        else callback(null, transactor.connection.snap());
       });
     });
   });
@@ -92,7 +89,6 @@ test("queries using txn", function(t){
   var db = level(memdown);
   Transactor(db, {}, function(err, transactor){
     if(err) return t.end(err);
-    var conn = Connection(db);
     λ.series([
       λ.curry(transactor.transact, [["01", "_db/attribute", "is"],
                                     ["01", "_db/type"     , "String"]], {}),
@@ -103,7 +99,7 @@ test("queries using txn", function(t){
       λ.curry(transactor.transact, [["prophet", "is",     "snow"]], {})
     ], function(err){
       if(err) return t.end(err);
-      var fb = conn.snap();
+      var fb = transactor.connection.snap();
       λ.concurrent({
         first:          λ.curry(inq.q, fb, [["prophet", "is", "?name",      2]], [{}]),
         third:          λ.curry(inq.q, fb, [["prophet", "is", "?name",      4]], [{}]),
@@ -126,7 +122,6 @@ test("getEntity", function(t){
   var db = level(memdown);
   Transactor(db, {}, function(err, transactor){
     if(err) return t.end(err);
-    var conn = Connection(db);
     λ.series([
       λ.curry(transactor.transact, [["01", "_db/attribute", "email"],
                                     ["01", "_db/type"     , "String"],
@@ -142,7 +137,7 @@ test("getEntity", function(t){
       λ.curry(transactor.transact, [["u0", "email", "new@email.com"]], {})
     ], function(err){
       if(err) return t.end(err);
-      var fb = conn.snap();
+      var fb = transactor.connection.snap();
       λ.concurrent({
         u0: λ.curry(inq.getEntity, fb, "u0"),
         u1: λ.curry(inq.getEntity, fb, "u1")
@@ -180,7 +175,6 @@ test("escaping '?...' values", function(t){
   var db = level(memdown);
   Transactor(db, {}, function(err, transactor){
     if(err) return t.end(err);
-    var conn = Connection(db);
     λ.series([
       λ.curry(transactor.transact, [["0", "_db/attribute", "name"],
                                     ["0", "_db/type"     , "String"]], {}),
@@ -192,7 +186,7 @@ test("escaping '?...' values", function(t){
                                     ["5", "name", "?_"]], {})
     ], function(err){
       if(err) return t.end(err);
-      var fb = conn.snap();
+      var fb = transactor.connection.snap();
       λ.concurrent({
         should_be_a_var:      λ.curry(inq.q, fb, [["?id", "name", "?notavar"]], [{}]),
         bind_it:              λ.curry(inq.q, fb, [["?id", "name", "?name"]], [{"?name": "?notavar"}]),

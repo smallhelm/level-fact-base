@@ -6,7 +6,6 @@ var level = require('levelup');
 var memdown = require('memdown');
 var HashIndex = require('level-hash-index');
 var Transactor = require('./transactor');
-var Connection = require('./connection');
 var genRandomString = require('./utils/genRandomString');
 
 test("ensure schema is loaded on transactor startup", function(t){
@@ -96,7 +95,7 @@ test("ensure transact persists stuff to the db", function(t){
       db.readStream().on('data', function(data){
         all_data.push(data);
       }).on('close', function(){
-        t.equals(all_data.length, 47);
+        t.equals(all_data.length, 60);
         t.end();
       });
     });
@@ -109,9 +108,6 @@ test("ensure transactor warms up with the latest transaction id", function(t){
   Transactor(db, {}, function(err, transactor){
     if(err) return t.end(err);
 
-    var conn = Connection(db);
-    var fb = conn.snap();
-
     λ.series([
       λ.curry(transactor.transact, [
         ["01", "_db/attribute", "is"],
@@ -123,6 +119,7 @@ test("ensure transactor warms up with the latest transaction id", function(t){
     ], function(err){
       if(err) return t.end(err);
 
+      var fb = transactor.connection.snap();
       inq.q(fb, [["?_", "?_", "?_", "?txn"]], [{}], function(err, results){
         if(err) return t.end(err);
 
