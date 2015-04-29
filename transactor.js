@@ -78,8 +78,21 @@ var validateAndEncodeFactTuplesToDBOps = function(fb, txn, fact_tuples, callback
 
     λ.map(fact_tuples, function(tuple, callback){
       tupleToDBOps(fb, txn, tuple, callback);
-    }, callback);
+    }, function(err, ops_per_fact){
+      callback(err, _.flatten(ops_per_fact));
+    });
   });
+};
+
+var factTuplesToSchemaChanges = function(conn, txn, fact_tuples, callback){
+  var attr_ids = _.pluck(fact_tuples.filter(function(fact){
+    return fact[1] === '_db/attribute';
+  }), 0);
+
+  if(attr_ids.length === 0){
+    return callback(null, {});
+  }
+  conn.loadSchemaFromIds(txn, attr_ids, callback);
 };
 
 module.exports = function(db, options, onStartup){
@@ -109,21 +122,13 @@ module.exports = function(db, options, onStartup){
       validateAndEncodeFactTuplesToDBOps(fb, txn, fact_tuples, function(err, ops){
         if(err) return callback(err);
 
-        db.batch(_.flatten(ops), function(err){
+        db.batch(ops, function(err){
           if(err) return callback(err);
 
-          var attr_ids_transacted = _.pluck(fact_tuples.filter(function(fact){
-            return fact[1] === '_db/attribute';
-          }), 0);
-
-          if(attr_ids_transacted.length === 0){
-            conn.update(txn, {});
-            return callback(null, conn.snap());
-          }
-          conn.loadSchemaFromIds(txn, attr_ids_transacted, function(err, schema_changes){
+          factTuplesToSchemaChanges(conn, txn, fact_tuples, function(err, schema_changes){
             if(err) return callback(err);
 
-            conn.update(txn, schema_changes);//TODO find a better way to avoid race conditions when multiple transactions are running at once
+            conn.update(txn, schema_changes);
             callback(null, conn.snap());
           });
         });
