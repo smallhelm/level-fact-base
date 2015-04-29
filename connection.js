@@ -55,21 +55,29 @@ var getLatestedTxn = function(db, callback){
   });
 };
 
+var loadSchemaFromIds = function(fb, ids, callback){
+  λ.map(ids, function(id, callback){
+    inq.getEntity(fb, id, callback);
+  }, function(err, entities){
+    if(err) return callback(err);
+
+    var schema = {};
+    entities.forEach(function(entity){
+      if(_.has(entity, "_db/attribute")){
+        schema[entity["_db/attribute"]] = entity;
+      }
+    });
+    callback(null, schema);
+  });
+};
+
 var loadUserSchema = function(fb, callback){
   inq.q(fb, [["?attr_id", "_db/attribute"]], [{}], function(err, results){
     if(err) return callback(err);
 
-    λ.map(results, function(result, callback){
-      inq.getEntity(fb, result["?attr_id"], callback);
-    }, function(err, entities){
-      if(err) return callback(err);
-
-      var schema = {};
-      entities.forEach(function(entity){
-        schema[entity["_db/attribute"]] = entity;
-      });
-      callback(null, schema);
-    });
+    loadSchemaFromIds(fb, results.map(function(result){
+      return result["?attr_id"];
+    }), callback);
   });
 };
 
@@ -115,6 +123,9 @@ module.exports = function(db, options, callback){
             if(err) return callback(err);
             callback(null, makeFB(txn, schema));
           });
+        },
+        loadSchemaFromIds: function(txn, ids, callback){
+          loadSchemaFromIds(makeFB(txn, db_schema), ids, callback);
         }
       });
     });

@@ -118,21 +118,10 @@ module.exports = function(db, options, onStartup){
               conn.update(txn, {});
               return callback(null, conn.snap());
             }
-            conn.update(txn, {});fb = conn.snap();//hack so we can read the new schema entities
-            λ.map(attr_ids_transacted, function(id, callback){
-              inq.getEntity(fb, id, callback);
-            }, function(err, entities){
+            conn.loadSchemaFromIds(txn, attr_ids_transacted, function(err, schema_changes){
               if(err) return callback(err);
 
-              var schema_changes = {};
-              entities.forEach(function(entity){
-                if(_.has(entity, "_db/attribute")){
-                  schema_changes[entity["_db/attribute"]] = entity;
-                }
-              });
-
               conn.update(txn, schema_changes);//TODO find a better way to avoid race conditions when multiple transactions are running at once
-
               callback(null, conn.snap());
             });
           });
