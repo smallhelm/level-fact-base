@@ -144,3 +144,31 @@ test("ensure transactor warms up with the latest transaction id", function(t){
     });
   });
 });
+
+test("transactions must be done serially, in the order they are recieved", function(t){
+  var db = level(memdown);
+
+  Transactor(db, {}, function(err, transactor){
+    if(err) return t.end(err);
+
+    var transact_attr = function(attr_name){
+      return function(callback){
+        transactor.transact([
+          ["01", "_db/attribute", attr_name],
+          ["01", "_db/type"     , "String"]
+        ], {}, function(err, fb){
+          callback(null, err ? "fail" : fb.txn);
+        });
+      };
+    };
+    λ.concurrent([
+      transact_attr("works"),
+      transact_attr(111),//fails
+      transact_attr("also works")
+    ], function(err, results){
+      if(err) return t.end(err);
+      t.deepEquals(results, [1, 'fail', 2]);
+      t.end();
+    });
+  });
+});

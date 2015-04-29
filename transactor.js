@@ -90,42 +90,52 @@ module.exports = function(db, options, onStartup){
   Connection(db, {hindex: hindex}, function(err, conn){
     if(err) return onStartup(err);
 
+    var transaction_q_data = {};
+
+    var transaction_q = λ.queue(function(transaction_q_id, callback){
+      var fact_tuples = transaction_q_data[transaction_q_id][0];
+      var tx_data = transaction_q_data[transaction_q_id][1];
+      delete transaction_q_data[transaction_q_id];
+
+      var fb = conn.snap();
+      var txn = fb.txn + 1;
+
+      //store facts about the transaction
+      tx_data["_db/txn-time"] = new Date();
+      _.each(tx_data, function(val, attr){
+        fact_tuples.push(["_txid" + txn, attr, val]);
+      });
+
+      validateAndEncodeFactTuplesToDBOps(fb, txn, fact_tuples, function(err, ops){
+        if(err) return callback(err);
+
+        db.batch(_.flatten(ops), function(err){
+          if(err) return callback(err);
+
+          var attr_ids_transacted = _.pluck(fact_tuples.filter(function(fact){
+            return fact[1] === '_db/attribute';
+          }), 0);
+
+          if(attr_ids_transacted.length === 0){
+            conn.update(txn, {});
+            return callback(null, conn.snap());
+          }
+          conn.loadSchemaFromIds(txn, attr_ids_transacted, function(err, schema_changes){
+            if(err) return callback(err);
+
+            conn.update(txn, schema_changes);//TODO find a better way to avoid race conditions when multiple transactions are running at once
+            callback(null, conn.snap());
+          });
+        });
+      });
+    });
+
     onStartup(null, {
       connection: conn,
       transact: function(fact_tuples, tx_data, callback){
-
-        var fb = conn.snap();
-
-        var txn = fb.txn + 1;//TODO find a better way i.e. maybe a list of pending txns? OR who cares if it fails, so long as the number still is higher than the previous?
-
-        //store facts about the transaction
-        tx_data["_db/txn-time"] = new Date();
-        _.each(tx_data, function(val, attr){
-          fact_tuples.push(["_txid" + txn, attr, val]);
-        });
-
-        validateAndEncodeFactTuplesToDBOps(fb, txn, fact_tuples, function(err, ops){
-          if(err) return callback(err);
-
-          db.batch(_.flatten(ops), function(err){
-            if(err) return callback(err);
-
-            var attr_ids_transacted = _.pluck(fact_tuples.filter(function(fact){
-              return fact[1] === '_db/attribute';
-            }), 0);
-
-            if(attr_ids_transacted.length === 0){
-              conn.update(txn, {});
-              return callback(null, conn.snap());
-            }
-            conn.loadSchemaFromIds(txn, attr_ids_transacted, function(err, schema_changes){
-              if(err) return callback(err);
-
-              conn.update(txn, schema_changes);//TODO find a better way to avoid race conditions when multiple transactions are running at once
-              callback(null, conn.snap());
-            });
-          });
-        });
+        var transaction_q_id = _.uniqueId();
+        transaction_q_data[transaction_q_id] = [fact_tuples, tx_data];
+        transaction_q.unshift(transaction_q_id, callback);
       }
     });
   });
