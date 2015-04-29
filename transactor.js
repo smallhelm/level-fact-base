@@ -116,7 +116,7 @@ module.exports = function(db, options, onStartup){
 
             if(attr_ids_transacted.length === 0){
               conn.update(txn, {});
-              return callback(null, conn.snap);
+              return callback(null, conn.snap());
             }
             conn.update(txn, {});fb = conn.snap();//hack so we can read the new schema entities
             λ.map(attr_ids_transacted, function(id, callback){

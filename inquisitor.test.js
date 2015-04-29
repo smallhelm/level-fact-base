@@ -34,10 +34,7 @@ var setupMiddleDataset = function(callback){
         ["frankie", "father",      "tag"],
         [  "janet", "mother",      "pat"],
         [  "janet", "father",      "tag"]
-      ], {}, function(err){
-        if(err) callback(err);
-        else callback(null, transactor.connection.snap());
-      });
+      ], {}, callback);
     });
   });
 };
@@ -48,20 +45,10 @@ var setupProphetDataset = function(callback){
   Transactor(db, {}, function(err, transactor){
     if(err) return t.end(err);
     λ.series([
-      function(callback){
-        transactor.transact([["01", "_db/attribute", "is"],
-                             ["01", "_db/type"     , "String"]], {}, function(err){
-          if(err) return callback(err);
-          callback(null, transactor.connection.snap());
-        });
-      }
+      λ.curry(transactor.transact, [["01", "_db/attribute", "is"],
+                                    ["01", "_db/type"     , "String"]], {})
     ].concat(prophets.map(function(name){
-      return function(callback){
-        transactor.transact([["prophet", "is", name]], {}, function(err){
-          if(err) return callback(err);
-          callback(null, transactor.connection.snap());
-        });
-      };
+      return λ.curry(transactor.transact, [["prophet", "is", name]], {});
     })), callback);
   });
 };

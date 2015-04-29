@@ -130,10 +130,9 @@ test("ensure transactor warms up with the latest transaction id", function(t){
         Transactor(db, {}, function(err, transactor2){
           if(err) return t.end(err);
 
-          transactor2.transact([["bob", "is", "NOT cool"]], {}, function(err){
+          transactor2.transact([["bob", "is", "NOT cool"]], {}, function(err, fb2){
             if(err) return t.end(err);
 
-            var fb2 = transactor2.connection.snap();
             inq.q(fb2, [["?_", "?_", "?_", "?txn"]], [{}], function(err, results){
               var txns = _.unique(_.pluck(results, "?txn")).sort();
               t.deepEqual(txns, [1, 2, 3, 4, 5]);
