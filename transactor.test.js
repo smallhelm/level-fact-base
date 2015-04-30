@@ -18,7 +18,7 @@ test("ensure schema is loaded on transactor startup", function(t){
       ["sky", "color", "blue"]
     ], {}, function(err){
       t.ok(err);
-      t.equals(err.toString(), "Error: Attribute not found in schema: color");
+      t.equals(err.toString(), "Error: Attribute not found or type not set for: color");
 
       transactor1.transact([
         ["01", "_db/attribute", "color"],
@@ -49,7 +49,7 @@ test("ensure schema is updated as facts are recorded", function(t){
       ["sky", "color", "blue"]
     ], {}, function(err){
       t.ok(err);
-      t.equals(err.toString(), "Error: Attribute not found in schema: color");
+      t.equals(err.toString(), "Error: Attribute not found or type not set for: color");
 
       transactor.transact([
         ["01", "_db/attribute", "color"],

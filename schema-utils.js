@@ -1,18 +1,16 @@
 module.exports = {
-  getTypeForAttribute: function(fb, a, callback){
-    //TODO implement the right way
-
-    if(!fb.types["String"].validate(a) || !fb.schema.hasOwnProperty(a)){
-      return callback(new Error("Attribute not found in schema: " + a));
+  getTypeForAttribute: function(fb, a){
+    if(!fb.schema.hasOwnProperty(a) || !fb.schema[a]){
+      return null;
     }
-    callback(null, fb.types[fb.schema[a]["_db/type"]]);
+    return fb.types[fb.schema[a]["_db/type"] || 'String'] || null;
   },
-  getIndexesForAttribute: function(fb, a, callback){
+  getIndexesForAttribute: function(fb, a){
     //TODO implement the right way
-    callback(null, [
+    return [
       'eavto',
       'aevto',
       'teavo'//log
-    ]);
+    ];
   }
 };

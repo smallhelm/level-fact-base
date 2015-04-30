@@ -22,16 +22,14 @@ var tupleToDBOps = function(fb, txn, tuple, callback){
       }
     });
 
-    SchemaUtils.getIndexesForAttribute(fb, tuple[1], function(err, indexes){
-      if(err) return callback(err);
+    var indexes = SchemaUtils.getIndexesForAttribute(fb, tuple[1]);
 
-      indexes.forEach(function(index){
-        ops.push({type: 'put', key: index + '!' + index.split('').map(function(k){
-          return fact[k];
-        }).join('!'), value: 0});
-      });
-      callback(null, ops);
+    indexes.forEach(function(index){
+      ops.push({type: 'put', key: index + '!' + index.split('').map(function(k){
+        return fact[k];
+      }).join('!'), value: 0});
     });
+    callback(null, ops);
   });
 };
 
@@ -49,21 +47,22 @@ var validateAndEncodeFactTuple = function(fb, fact_tuple, callback){
 
   //attribute
   var a = fact_tuple[1];
-  SchemaUtils.getTypeForAttribute(fb, a, function(err, type){
-    if(err) return callback(err);
+  var type = SchemaUtils.getTypeForAttribute(fb, a);
+  if(!type){
+    return callback(new Error("Attribute not found or type not set for: " + a));
+  }
 
-    //value
-    var v = fact_tuple[2];
-    if(!type.validate(v)){
-      return callback(new Error("Invalid value for attribute " + a));
-    }
-    v = type.encode(v);
+  //value
+  var v = fact_tuple[2];
+  if(!type.validate(v)){
+    return callback(new Error("Invalid value for attribute " + a));
+  }
+  v = type.encode(v);
 
-    //op
-    var o = fact_tuple[3] === false ? 0 : 1;//default to 1
+  //op
+  var o = fact_tuple[3] === false ? 0 : 1;//default to 1
 
-    callback(null, [e, a, v, o]);
-  });
+  callback(null, [e, a, v, o]);
 };
 
 var validateAndEncodeFactTuples = function(fb, fact_tuples, callback){
@@ -122,7 +121,7 @@ module.exports = function(db, options, onStartup){
       validateAndEncodeFactTuplesToDBOps(fb, txn, fact_tuples, function(err, ops){
         if(err) return callback(err);
 
-        db.batch(ops, function(err){
+        fb.db.batch(ops, function(err){
           if(err) return callback(err);
 
           factTuplesToSchemaChanges(conn, txn, fact_tuples, function(err, schema_changes){
