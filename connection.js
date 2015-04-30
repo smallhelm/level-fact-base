@@ -18,6 +18,17 @@ var db_types = {
     encode: _.identity,
     decode: _.identity
   },
+  "Boolean": {
+    validate: function(v){
+      return v === true || v === false;
+    },
+    encode: function(v){
+      return v ? '1' : '0';
+    },
+    decode: function(s){
+      return s === '0' ? false : true;
+    }
+  },
   "Entity_ID": {
     validate: _.isString,
     encode: _.identity,
@@ -31,6 +42,9 @@ var db_schema = {
   },
   "_db/attribute": {
     "_db/type": "String"
+  },
+  "_db/is-multi-valued": {
+    "_db/type": "Boolean"
   },
   "_db/txn-time": {
     "_db/type": "Date"

@@ -1,5 +1,6 @@
 var _ = require('lodash');
 var λ = require('contra');
+var SchemaUtils = require('./schema-utils');
 var escapeRegExp = require('escape-regexp');
 var HashIndex = require('level-hash-index');
 var toPaddedBase36 = require('./utils/toPaddedBase36');
@@ -146,10 +147,21 @@ var keyToFact = function(key){
   return fact;
 };
 
-var bindKeys = function(matching_keys, q_fact, as_of_txn){
+var isMultiValued = function(fb, a){
+  try{
+    return SchemaUtils.isAttributeMultiValued_THIS_MAY_THROWUP(fb, a);
+  }catch(e){
+    return false;
+  }
+};
+
+var bindKeys = function(fb, matching_keys, q_fact){
   var binding = {};//to ensure unique-ness
 
-  var only_the_latest = q_fact.t.is_blank;//TODO also based on the cardiality of q_fact.a's schema
+  var only_the_latest = q_fact.t.is_blank;
+  if(isMultiValued(fb, q_fact.a.value)){
+    only_the_latest = false;
+  }
   var latest_for = {};//latest for the same e+a
 
   var var_names = "eavto".split('').filter(function(k){
@@ -161,7 +173,7 @@ var bindKeys = function(matching_keys, q_fact, as_of_txn){
   matching_keys.forEach(function(key, i){
     var fact = keyToFact(key);
 
-    if(fact.t.value > as_of_txn){
+    if(fact.t.value > fb.txn){
       return;//this fact is too new, so ignore it
     }
 
@@ -189,9 +201,6 @@ var bindKeys = function(matching_keys, q_fact, as_of_txn){
 };
 
 var qTuple = function(fb, tuple, orig_binding, callback){
-  var db = fb.db;
-  var hindex = fb.hindex;
-  var as_of_txn = fb.txn;
 
   if(!_.isArray(tuple)){
     return callback(new Error("tuple must be an array"));
@@ -200,7 +209,7 @@ var qTuple = function(fb, tuple, orig_binding, callback){
     return callback(new Error("binding must be a plain object"));
   }
 
-  parseTuple(hindex, bindToTuple(tuple, orig_binding), function(err, q_fact){
+  parseTuple(fb.hindex, bindToTuple(tuple, orig_binding), function(err, q_fact){
     if(err){
       if(err.type === 'NotFoundError'){
         //one of the tuple values were not found in the hash, so there must be no results
@@ -210,16 +219,16 @@ var qTuple = function(fb, tuple, orig_binding, callback){
     }
     var index_to_use = selectIndex(q_fact);
 
-    findMatchingKeys(db, toMatcher(index_to_use, q_fact), function(err, matching_keys){
+    findMatchingKeys(fb.db, toMatcher(index_to_use, q_fact), function(err, matching_keys){
       if(err) return callback(err);
 
-      var bindings = bindKeys(matching_keys, q_fact, as_of_txn);
+      var bindings = bindKeys(fb, matching_keys, q_fact);
 
       //de-hash the bindings
       λ.map(bindings, function(binding, callback){
         λ.map(_.pairs(binding), function(p, callback){
           if(_.isString(p[1])){
-            hindex.get(p[1], function(err, val){
+            fb.hindex.get(p[1], function(err, val){
               callback(err, [p[0], val]);
             });
           }else{
@@ -264,8 +273,15 @@ module.exports = {
       if(err) return callback(err);
       var o = {};
       results.forEach(function(result){
-        o[result["?a"]] = result["?v"];
-        //TODO cardinality = multiple
+        var a = result["?a"];
+        if(isMultiValued(fb, a)){
+          if(!_.isArray(o[a])){
+            o[a] = [];
+          }
+          o[a].push(result["?v"]);
+        }else{
+          o[a] = result["?v"];
+        }
       });
       callback(null, o);
     });

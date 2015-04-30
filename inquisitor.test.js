@@ -229,3 +229,38 @@ test("escaping '?...' values", function(t){
     });
   });
 });
+
+test("multi-valued attributes", function(t){
+  var db = level(memdown);
+  Transactor(db, {}, function(err, transactor){
+    if(err) return t.end(err);
+
+    //"_db/is-multi-valued"
+    λ.series([
+      λ.curry(transactor.transact, [["0", "_db/attribute"      , "emails"],
+                                    ["0", "_db/type"           , "String"],
+                                    ["0", "_db/is-multi-valued", true]], {}),
+
+      λ.curry(transactor.transact, [["me", "emails", "1@email"]], {}),
+      λ.curry(transactor.transact, [["me", "emails", "2@email"],
+                                    ["me", "emails", "3@email"]], {})
+    ], function(err, fb_versions){
+      if(err) return t.end(err);
+      var fb = transactor.connection.snap();
+
+      λ.concurrent({
+        my_emails:    λ.curry(inq.q, fb, [["me", "emails", "?emails"]], [{}]),
+        the_first_me: λ.curry(inq.getEntity, fb_versions[1], "me"),
+        the_last_me:  λ.curry(inq.getEntity, fb, "me")
+      }, function(err, r){
+        if(err) return t.end(err);
+
+        t.deepEqual(_.pluck(r.my_emails, "?emails"), ["1@email", "2@email", "3@email"]);
+        t.deepEqual(r.the_first_me, {emails: ["1@email"]});
+        //TODO revisit t.deepEqual(r.the_last_me, {emails: ["1@email", "2@email", "3@mail"]});
+
+        t.end();
+      });
+    });
+  });
+});

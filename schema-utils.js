@@ -9,6 +9,12 @@ module.exports = {
     }
     return fb.types[type];
   },
+  isAttributeMultiValued_THIS_MAY_THROWUP: function(fb, a){
+    if(!fb.schema.hasOwnProperty(a) || !fb.schema[a]){
+      throw new Error("Attribute not found: " + a);
+    }
+    return !!fb.schema[a]["_db/is-multi-valued"];
+  },
   getIndexesForAttribute: function(fb, a){
     //TODO implement the right way
     return [
