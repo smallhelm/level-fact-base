@@ -33,53 +33,52 @@ var tupleToDBOps = function(fb, txn, tuple, callback){
   });
 };
 
-var validateAndEncodeFactTuple = function(fb, fact_tuple, callback){
+var validateAndEncodeFactTuple_THIS_MAY_THROWUP = function(fb, fact_tuple){
   if(!_.isArray(fact_tuple) || fact_tuple.length < 3 || fact_tuple.length > 4){//eavo
-    return callback(new Error("fact_tuple must be an array defining EAV or EAVO"));
+    throw new Error("fact_tuple must be an array defining EAV or EAVO");
   }
 
   //entity
   var e = fact_tuple[0];
   if(!fb.types["Entity_ID"].validate(e)){
-    return callback(new Error("Not a valid entity id"));
+    throw new Error("Not a valid entity id");
   }
   e = fb.types["Entity_ID"].encode(e);
 
   //attribute
   var a = fact_tuple[1];
-  var type = SchemaUtils.getTypeForAttribute(fb, a);
-  if(!type){
-    return callback(new Error("Attribute not found or type not set for: " + a));
-  }
+  var type = SchemaUtils.getTypeForAttribute_THIS_MAY_THROWUP(fb, a);
 
   //value
   var v = fact_tuple[2];
   if(!type.validate(v)){
-    return callback(new Error("Invalid value for attribute " + a));
+    throw new Error("Invalid value for attribute " + a);
   }
   v = type.encode(v);
 
   //op
   var o = fact_tuple[3] === false ? 0 : 1;//default to 1
 
-  callback(null, [e, a, v, o]);
+  return [e, a, v, o];
 };
 
-var validateAndEncodeFactTuples = function(fb, fact_tuples, callback){
-  λ.map(fact_tuples, function(tuple, cb){
-    validateAndEncodeFactTuple(fb, tuple, cb);
-  }, callback);
+var validateAndEncodeFactTuples_THIS_MAY_THROWUP = function(fb, fact_tuples){
+  return fact_tuples.map(function(tuple){
+    return validateAndEncodeFactTuple_THIS_MAY_THROWUP(fb, tuple);
+  });
 };
 
 var validateAndEncodeFactTuplesToDBOps = function(fb, txn, fact_tuples, callback){
-  validateAndEncodeFactTuples(fb, fact_tuples, function(err, fact_tuples){
-    if(err) return callback(err);
+  try{
+    fact_tuples = validateAndEncodeFactTuples_THIS_MAY_THROWUP(fb, fact_tuples);
+  }catch(err){
+    return callback(err);
+  }
 
-    λ.map(fact_tuples, function(tuple, callback){
-      tupleToDBOps(fb, txn, tuple, callback);
-    }, function(err, ops_per_fact){
-      callback(err, _.flatten(ops_per_fact));
-    });
+  λ.map(fact_tuples, function(tuple, callback){
+    tupleToDBOps(fb, txn, tuple, callback);
+  }, function(err, ops_per_fact){
+    callback(err, _.flatten(ops_per_fact));
   });
 };
 
