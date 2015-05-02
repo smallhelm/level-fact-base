@@ -159,7 +159,14 @@ var isMultiValued = function(fb, a){
   }
 };
 
-var SetOfBindings = function(var_names){
+var SetOfBindings = function(q_fact){
+
+  var var_names = "eavto".split('').filter(function(k){
+    return q_fact[k].hasOwnProperty('var_name');
+  }).map(function(k){
+    return [q_fact[k].var_name, k];
+  });
+
   var set = {};
   var latest_for = {};//latest for the same e+a
   var next_key = 0;
@@ -191,25 +198,6 @@ var SetOfBindings = function(var_names){
   };
 };
 
-var bindHashFacts = function(fb, hash_facts, q_fact){
-  var only_the_latest = q_fact.t.is_blank;
-  if(isMultiValued(fb, q_fact.a.value)){
-    only_the_latest = false;
-  }
-
-  var var_names = "eavto".split('').filter(function(k){
-    return q_fact[k].hasOwnProperty('var_name');
-  }).map(function(k){
-    return [q_fact[k].var_name, k];
-  });
-
-  var s = SetOfBindings(var_names);
-  hash_facts.forEach(function(hash_fact){
-    s.add(only_the_latest, hash_fact);
-  });
-  return s.toArray();
-};
-
 var qTuple = function(fb, tuple, orig_binding, callback){
 
   if(!_.isArray(tuple)){
@@ -229,16 +217,21 @@ var qTuple = function(fb, tuple, orig_binding, callback){
     }
     var index_to_use = selectIndex(q_fact);
 
-    var hash_facts = [];
+    var only_the_latest = q_fact.t.is_blank;
+    if(isMultiValued(fb, q_fact.a.value)){
+      only_the_latest = false;
+    }
+
+    var s = SetOfBindings(q_fact);
     forEachMatchingHashFact(fb, toMatcher(index_to_use, q_fact), function(hash_fact){
-      hash_facts.push(hash_fact);
+      s.add(only_the_latest, hash_fact);
     }, function(err){
       if(err) return callback(err);
 
-      var bindings = bindHashFacts(fb, hash_facts, q_fact);
+      var hash_bindings = s.toArray();
 
       //de-hash the bindings
-      λ.map(bindings, function(binding, callback){
+      λ.map(hash_bindings, function(binding, callback){
         λ.map(_.pairs(binding), function(p, callback){
           if(_.isString(p[1])){
             fb.hindex.get(p[1], function(err, val){
