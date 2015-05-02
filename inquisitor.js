@@ -169,31 +169,36 @@ var SetOfBindings = function(q_fact){
 
   var set = {};
   var latest_for = {};//latest for the same e+a
-  var next_key = 0;
+  var add = function(only_the_latest, hash_fact){
+    var key_for_latest_for = only_the_latest ? hash_fact.e + hash_fact.a : _.uniqueId();
+
+    if(latest_for.hasOwnProperty(key_for_latest_for)){
+      if(latest_for[key_for_latest_for].txn > hash_fact.t){
+        return;//not the latest, so skip the rest
+      }
+    }
+    var binding = {};
+    var hash_key = '';//to ensure uniqueness
+    var_names.forEach(function(p){
+      var k = p[1];
+      binding[p[0]] = hash_fact[k];
+      hash_key += hash_fact[k];
+    });
+    set[hash_key] = binding;
+    latest_for[key_for_latest_for] = {txn: hash_fact.t, hash_key: hash_key};
+  };
+  var toArray = function(){
+    return _.unique(_.pluck(latest_for, 'hash_key')).map(function(key){
+      return set[key];
+    });
+  };
+
   return {
     add: function(only_the_latest, hash_fact){
-      next_key++;
-      var key_for_latest_for = only_the_latest ? hash_fact.e + hash_fact.a : next_key;
-
-      if(latest_for.hasOwnProperty(key_for_latest_for)){
-        if(latest_for[key_for_latest_for].txn > hash_fact.t){
-          return;//not the latest, so skip the rest
-        }
-      }
-      var binding = {};
-      var hash_key = '';//to ensure uniqueness
-      var_names.forEach(function(p){
-        var k = p[1];
-        binding[p[0]] = hash_fact[k];
-        hash_key += hash_fact[k];
-      });
-      set[hash_key] = binding;
-      latest_for[key_for_latest_for] = {txn: hash_fact.t, hash_key: hash_key};
+      add(only_the_latest, hash_fact);
     },
-    toArray: function(){
-      return _.unique(_.pluck(latest_for, 'hash_key')).map(function(key){
-        return set[key];
-      });
+    toArray: function(callback){
+      callback(null, toArray());
     }
   };
 };
@@ -228,22 +233,22 @@ var qTuple = function(fb, tuple, orig_binding, callback){
     }, function(err){
       if(err) return callback(err);
 
-      var hash_bindings = s.toArray();
-
-      //de-hash the bindings
-      λ.map(hash_bindings, function(binding, callback){
-        λ.map(_.pairs(binding), function(p, callback){
-          if(_.isString(p[1])){
-            fb.hindex.get(p[1], function(err, val){
-              callback(err, [p[0], val]);
-            });
-          }else{
-            callback(null, [p[0], p[1]]);
-          }
-        }, function(err, pairs){
-          callback(err, _.assign({}, orig_binding, _.object(pairs)));
-        });
-      }, callback);
+      s.toArray(function(err, hash_bindings){
+        //de-hash the bindings
+        λ.map(hash_bindings, function(binding, callback){
+          λ.map(_.pairs(binding), function(p, callback){
+            if(_.isString(p[1])){
+              fb.hindex.get(p[1], function(err, val){
+                callback(err, [p[0], val]);
+              });
+            }else{
+              callback(null, [p[0], p[1]]);
+            }
+          }, function(err, pairs){
+            callback(err, _.assign({}, orig_binding, _.object(pairs)));
+          });
+        }, callback);
+      });
     });
   });
 };
