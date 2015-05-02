@@ -112,21 +112,25 @@ var toMatcher = function(index_to_use, q_fact){
   };
 }; 
 
-var findMatchingKeys = function(db, matcher, callback){
-  var results = [];
-  db.createReadStream({
+var forEachMatchingFact = function(fb, matcher, iterator, done){
+  fb.db.createReadStream({
     keys: true,
     values: false,
     gte: matcher.prefix + '\x00',
     lte: matcher.prefix + '\xFF',
   }).on('data', function(data){
-    if(matcher.matchRegExp.test(data)){
-      results.push(data);
+    if(!matcher.matchRegExp.test(data)){
+      return;
     }
+    var fact = keyToFact(data);
+    if(fact.t.value > fb.txn){
+      return;//this fact is too new, so ignore it
+    }
+    iterator(fact);
   }).on('error', function(err){
-    callback(err);
+    done(err);
   }).on('end', function(){
-    callback(null, results);
+    done(null);
   });
 };
 
@@ -155,7 +159,7 @@ var isMultiValued = function(fb, a){
   }
 };
 
-var bindKeys = function(fb, matching_keys, q_fact){
+var bindKeys = function(fb, facts, q_fact){
   var binding = {};//to ensure unique-ness
 
   var only_the_latest = q_fact.t.is_blank;
@@ -170,12 +174,7 @@ var bindKeys = function(fb, matching_keys, q_fact){
     return [q_fact[k].var_name, k];
   });
 
-  matching_keys.forEach(function(key, i){
-    var fact = keyToFact(key);
-
-    if(fact.t.value > fb.txn){
-      return;//this fact is too new, so ignore it
-    }
+  facts.forEach(function(fact, i){
 
     var key_for_latest_for = only_the_latest ? fact.e + fact.a : i;
 
@@ -219,10 +218,13 @@ var qTuple = function(fb, tuple, orig_binding, callback){
     }
     var index_to_use = selectIndex(q_fact);
 
-    findMatchingKeys(fb.db, toMatcher(index_to_use, q_fact), function(err, matching_keys){
+    var facts = [];
+    forEachMatchingFact(fb, toMatcher(index_to_use, q_fact), function(fact){
+      facts.push(fact);
+    }, function(err){
       if(err) return callback(err);
 
-      var bindings = bindKeys(fb, matching_keys, q_fact);
+      var bindings = bindKeys(fb, facts, q_fact);
 
       //de-hash the bindings
       λ.map(bindings, function(binding, callback){
