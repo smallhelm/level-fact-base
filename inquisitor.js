@@ -159,14 +159,43 @@ var isMultiValued = function(fb, a){
   }
 };
 
-var bindHashFacts = function(fb, hash_facts, q_fact){
-  var binding = {};//to ensure unique-ness
+var SetOfBindings = function(var_names){
+  var set = {};
+  var latest_for = {};//latest for the same e+a
+  var next_key = 0;
+  return {
+    add: function(only_the_latest, hash_fact){
+      next_key++;
+      var key_for_latest_for = only_the_latest ? hash_fact.e + hash_fact.a : next_key;
 
+      if(latest_for.hasOwnProperty(key_for_latest_for)){
+        if(latest_for[key_for_latest_for].txn > hash_fact.t){
+          return;//not the latest, so skip the rest
+        }
+      }
+      var binding = {};
+      var hash_key = '';//to ensure uniqueness
+      var_names.forEach(function(p){
+        var k = p[1];
+        binding[p[0]] = hash_fact[k];
+        hash_key += hash_fact[k];
+      });
+      set[hash_key] = binding;
+      latest_for[key_for_latest_for] = {txn: hash_fact.t, hash_key: hash_key};
+    },
+    toArray: function(){
+      return _.unique(_.pluck(latest_for, 'hash_key')).map(function(key){
+        return set[key];
+      });
+    }
+  };
+};
+
+var bindHashFacts = function(fb, hash_facts, q_fact){
   var only_the_latest = q_fact.t.is_blank;
   if(isMultiValued(fb, q_fact.a.value)){
     only_the_latest = false;
   }
-  var latest_for = {};//latest for the same e+a
 
   var var_names = "eavto".split('').filter(function(k){
     return q_fact[k].hasOwnProperty('var_name');
@@ -174,30 +203,11 @@ var bindHashFacts = function(fb, hash_facts, q_fact){
     return [q_fact[k].var_name, k];
   });
 
-  hash_facts.forEach(function(hash_fact, i){
-
-    var key_for_latest_for = only_the_latest ? hash_fact.e + hash_fact.a : i;
-
-    if(latest_for.hasOwnProperty(key_for_latest_for)){
-      if(latest_for[key_for_latest_for].txn > hash_fact.t){
-        return;//not the latest, so skip the rest
-      }
-    }
-
-    var vars = {};
-    var hash_key = '';
-    var_names.forEach(function(p){
-      var k = p[1];
-      //vars[p[0]] = k === 't' || k === 'o' ? {value: hash_fact[k]} : hash_fact[k];
-      vars[p[0]] = hash_fact[k];
-      hash_key += hash_fact[k];
-    });
-    binding[hash_key] = vars;
-    latest_for[key_for_latest_for] = {txn: hash_fact.t, hash_key: hash_key};
+  var s = SetOfBindings(var_names);
+  hash_facts.forEach(function(hash_fact){
+    s.add(only_the_latest, hash_fact);
   });
-  return _.unique(_.pluck(latest_for, 'hash_key')).map(function(key){
-    return binding[key];
-  });
+  return s.toArray();
 };
 
 var qTuple = function(fb, tuple, orig_binding, callback){
