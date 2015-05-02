@@ -112,43 +112,43 @@ var toMatcher = function(index_to_use, q_fact){
   };
 }; 
 
-var forEachMatchingFact = function(fb, matcher, iterator, done){
+var parseKey = function(key){
+  var parts = key.split("!");
+  var index_name = parts[0];
+  var hash_fact = {};
+  index_name.split('').forEach(function(k, i){
+    var part = parts[i + 1];
+    if(k === 't'){
+      hash_fact[k] = parseInt(part, 36);
+    }else if(k === 'o'){
+      hash_fact[k] = part === '1';
+    }else{
+      hash_fact[k] = part;
+    }
+  });
+  return hash_fact;
+};
+
+var forEachMatchingHashFact = function(fb, matcher, iterator, done){
   fb.db.createReadStream({
     keys: true,
     values: false,
     gte: matcher.prefix + '\x00',
     lte: matcher.prefix + '\xFF',
-  }).on('data', function(data){
-    if(!matcher.matchRegExp.test(data)){
+  }).on('data', function(key){
+    if(!matcher.matchRegExp.test(key)){
       return;
     }
-    var fact = keyToFact(data);
-    if(fact.t.value > fb.txn){
+    var hash_fact = parseKey(key);
+    if(hash_fact.t > fb.txn){
       return;//this fact is too new, so ignore it
     }
-    iterator(fact);
+    iterator(hash_fact);
   }).on('error', function(err){
     done(err);
   }).on('end', function(){
     done(null);
   });
-};
-
-var keyToFact = function(key){
-  var parts = key.split("!");
-  var index_name = parts[0];
-  var fact = {};
-  index_name.split('').forEach(function(k, i){
-    var part = parts[i + 1];
-    if(k === 't'){
-      fact[k] = {value: parseInt(part, 36)};
-    }else if(k === 'o'){
-      fact[k] = {value: part === '1'};
-    }else{
-      fact[k] = part;
-    }
-  });
-  return fact;
 };
 
 var isMultiValued = function(fb, a){
@@ -159,7 +159,7 @@ var isMultiValued = function(fb, a){
   }
 };
 
-var bindKeys = function(fb, facts, q_fact){
+var bindHashFacts = function(fb, hash_facts, q_fact){
   var binding = {};//to ensure unique-ness
 
   var only_the_latest = q_fact.t.is_blank;
@@ -174,12 +174,12 @@ var bindKeys = function(fb, facts, q_fact){
     return [q_fact[k].var_name, k];
   });
 
-  facts.forEach(function(fact, i){
+  hash_facts.forEach(function(hash_fact, i){
 
-    var key_for_latest_for = only_the_latest ? fact.e + fact.a : i;
+    var key_for_latest_for = only_the_latest ? hash_fact.e + hash_fact.a : i;
 
     if(latest_for.hasOwnProperty(key_for_latest_for)){
-      if(latest_for[key_for_latest_for].txn > fact.t.value){
+      if(latest_for[key_for_latest_for].txn > hash_fact.t){
         return;//not the latest, so skip the rest
       }
     }
@@ -188,11 +188,12 @@ var bindKeys = function(fb, facts, q_fact){
     var hash_key = '';
     var_names.forEach(function(p){
       var k = p[1];
-      vars[p[0]] = fact[k];
-      hash_key += _.isString(fact[k]) ? fact[k] : fact[k].value;
+      //vars[p[0]] = k === 't' || k === 'o' ? {value: hash_fact[k]} : hash_fact[k];
+      vars[p[0]] = hash_fact[k];
+      hash_key += hash_fact[k];
     });
     binding[hash_key] = vars;
-    latest_for[key_for_latest_for] = {txn: fact.t.value, hash_key: hash_key};
+    latest_for[key_for_latest_for] = {txn: hash_fact.t, hash_key: hash_key};
   });
   return _.unique(_.pluck(latest_for, 'hash_key')).map(function(key){
     return binding[key];
@@ -218,13 +219,13 @@ var qTuple = function(fb, tuple, orig_binding, callback){
     }
     var index_to_use = selectIndex(q_fact);
 
-    var facts = [];
-    forEachMatchingFact(fb, toMatcher(index_to_use, q_fact), function(fact){
-      facts.push(fact);
+    var hash_facts = [];
+    forEachMatchingHashFact(fb, toMatcher(index_to_use, q_fact), function(hash_fact){
+      hash_facts.push(hash_fact);
     }, function(err){
       if(err) return callback(err);
 
-      var bindings = bindKeys(fb, facts, q_fact);
+      var bindings = bindHashFacts(fb, hash_facts, q_fact);
 
       //de-hash the bindings
       λ.map(bindings, function(binding, callback){
@@ -234,7 +235,7 @@ var qTuple = function(fb, tuple, orig_binding, callback){
               callback(err, [p[0], val]);
             });
           }else{
-            callback(null, [p[0], p[1].value]);
+            callback(null, [p[0], p[1]]);
           }
         }, function(err, pairs){
           callback(err, _.assign({}, orig_binding, _.object(pairs)));
