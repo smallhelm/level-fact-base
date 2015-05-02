@@ -1,6 +1,7 @@
 var _ = require('lodash');
 var λ = require('contra');
 var inq = require('./inquisitor');
+var AsyncQ = require('./any-value-async-q');
 var SchemaUtils = require('./schema-utils');
 var HashIndex = require('level-hash-index');
 var Connection = require('./connection');
@@ -101,12 +102,9 @@ module.exports = function(db, options, onStartup){
   Connection(db, {hindex: hindex}, function(err, conn){
     if(err) return onStartup(err);
 
-    var transaction_q_data = {};
-
-    var transaction_q = λ.queue(function(transaction_q_id, callback){
-      var fact_tuples = transaction_q_data[transaction_q_id][0];
-      var tx_data = transaction_q_data[transaction_q_id][1];
-      delete transaction_q_data[transaction_q_id];
+    var q = AsyncQ(function(data, callback){
+      var fact_tuples = data[0];
+      var tx_data = data[1];
 
       var fb = conn.snap();
       var txn = fb.txn + 1;
@@ -136,9 +134,7 @@ module.exports = function(db, options, onStartup){
     onStartup(null, {
       connection: conn,
       transact: function(fact_tuples, tx_data, callback){
-        var transaction_q_id = _.uniqueId();
-        transaction_q_data[transaction_q_id] = [fact_tuples, tx_data];
-        transaction_q.unshift(transaction_q_id, callback);
+        q.push([fact_tuples, tx_data], callback);
       }
     });
   });
