@@ -76,12 +76,26 @@ var loadSchemaFromIds = function(fb, ids, callback){
     if(err) return callback(err);
 
     var schema = {};
-    entities.forEach(function(entity){
-      if(_.has(entity, "_db/attribute")){
-        schema[entity["_db/attribute"]] = entity;
+    schema["_db/attribute-hashes"] = {};
+
+    λ.each(entities, function(entity, callback){
+      if(!_.has(entity, "_db/attribute")){
+        return callback(null);//just ignore it
       }
+      var a = entity["_db/attribute"];
+      schema[a] = entity;
+
+      fb.hindex.getHash(a, function(err, hash){
+        if(err) return callback(err);
+
+        schema[a]["_db/attribute-hash"] = hash
+        schema["_db/attribute-hashes"][hash] = a;
+
+        callback(null);//done with this entity
+      });
+    }, function(err){
+      callback(err, schema);
     });
-    callback(null, schema);
   });
 };
 

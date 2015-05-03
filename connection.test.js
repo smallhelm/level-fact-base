@@ -11,8 +11,12 @@ test("Ensure the Connection warms up right", function(t){
 
   var fbStateEquals = function(fb, txn, user_schema){
     t.equals(fb.txn, txn);
-    t.deepEquals(_.object(_.filter(_.pairs(fb.schema), function(p){
+    t.deepEquals(_.object(_.map(_.filter(_.pairs(fb.schema), function(p){
       return p[0][0] !== "_";
+    }), function(p){
+      return [p[0], _.object(_.filter(_.pairs(p[1]), function(p1){
+        return p1[0] !== "_db/attribute-hash";
+      }))];
     })), user_schema);
   };
 
