@@ -257,7 +257,7 @@ test("multi-valued attributes", function(t){
 
         t.deepEqual(_.pluck(r.my_emails, "?emails"), ["1@email", "2@email", "3@email"]);
         t.deepEqual(r.the_first_me, {emails: ["1@email"]});
-        //t.deepEqual(r.the_last_me, {emails: ["1@email", "2@email", "3@email"]});
+        t.deepEqual(r.the_last_me, {emails: ["1@email", "2@email", "3@email"]});
 
         t.end();
       });

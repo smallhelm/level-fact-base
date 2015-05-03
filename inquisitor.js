@@ -159,6 +159,14 @@ var isMultiValued = function(fb, a){
   }
 };
 
+var isHashMultiValued = function(fb, h){
+  try{
+    return SchemaUtils.isAttributeHashMultiValued_THIS_MAY_THROWUP(fb, h);
+  }catch(e){
+    return false;
+  }
+};
+
 var SetOfBindings = function(q_fact){
 
   var var_names = "eavto".split('').filter(function(k){
@@ -226,9 +234,13 @@ var qTuple = function(fb, tuple, orig_binding, callback){
     if(isMultiValued(fb, q_fact.a.value)){
       only_the_latest = false;
     }
+    var is_attribute_unknown = q_fact.a.hasOwnProperty('var_name');
 
     var s = SetOfBindings(q_fact);
     forEachMatchingHashFact(fb, toMatcher(index_to_use, q_fact), function(hash_fact){
+      if(only_the_latest && is_attribute_unknown){
+       only_the_latest = !isHashMultiValued(fb, hash_fact.a);
+      }
       s.add(only_the_latest, hash_fact);
     }, function(err){
       if(err) return callback(err);
