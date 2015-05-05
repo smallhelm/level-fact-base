@@ -235,7 +235,6 @@ test("multi-valued attributes", function(t){
   Transactor(db, {}, function(err, transactor){
     if(err) return t.end(err);
 
-    //"_db/is-multi-valued"
     λ.series([
       λ.curry(transactor.transact, [["0", "_db/attribute"      , "emails"],
                                     ["0", "_db/type"           , "String"],
@@ -258,6 +257,38 @@ test("multi-valued attributes", function(t){
         t.deepEqual(_.pluck(r.my_emails, "?emails"), ["1@email", "2@email", "3@email"]);
         t.deepEqual(r.the_first_me, {emails: ["1@email"]});
         t.deepEqual(r.the_last_me, {emails: ["1@email", "2@email", "3@email"]});
+
+        t.end();
+      });
+    });
+  });
+});
+
+test("attribute type encoding/decoding", function(t){
+  var db = level(memdown);
+  Transactor(db, {}, function(err, transactor){
+    if(err) return t.end(err);
+
+    λ.series([
+      λ.curry(transactor.transact, [["0", "_db/attribute"      , "time"],
+                                    ["0", "_db/type"           , "Date"],
+                                    ["0", "_db/is-multi-valued", true]], {}),
+
+      λ.curry(transactor.transact, [["1", "time", new Date(2010, 11, 25)]], {})
+    ], function(err, fb_versions){
+      if(err) return t.end(err);
+      var fb = transactor.connection.snap();
+
+      t.ok(fb.schema.time["_db/is-multi-valued"] === true, "must also decode db default schema values");
+
+      λ.concurrent({
+        time:    λ.curry(inq.q, fb, [["1", "time", "?time"]], [{}])
+      }, function(err, r){
+        if(err) return t.end(err);
+
+        var time = r.time[0]['?time'];
+
+        t.ok(_.isDate(time));
 
         t.end();
       });

@@ -167,6 +167,23 @@ var isHashMultiValued = function(fb, h){
   }
 };
 
+var getTypeForAttribute = function(fb, a){
+  try{
+    return SchemaUtils.getTypeForAttribute_THIS_MAY_THROWUP(fb, a);
+  }catch(e){
+    return null;
+  }
+};
+
+var getTypeForHash = function(fb, h){
+  try{
+    var a = SchemaUtils.getAttributeFromHash_THIS_MAY_THROWUP(fb, h);
+    return getTypeForAttribute(fb, a);
+  }catch(e){
+    return null;
+  }
+};
+
 var SetOfBindings = function(fb, q_fact){
 
   var only_the_latest = q_fact.t.is_blank;
@@ -189,6 +206,7 @@ var SetOfBindings = function(fb, q_fact){
       if(only_the_latest && is_attribute_unknown){
         only_the_latest = !isHashMultiValued(fb, hash_fact.a);
       }
+      var type = is_attribute_unknown ? getTypeForHash(fb, hash_fact.a) : getTypeForAttribute(fb, q_fact.a.value);
 
       var key_for_latest_for = only_the_latest ? hash_fact.e + hash_fact.a : _.uniqueId();
 
@@ -201,7 +219,14 @@ var SetOfBindings = function(fb, q_fact){
       var hash_key = '';//to ensure uniqueness
       var_names.forEach(function(p){
         var k = p[1];
-        binding[p[0]] = hash_fact[k];
+        if(k === 'v' && type){
+          binding[p[0]] = {
+            hash: hash_fact[k],
+            decode: type.decode
+          };
+        }else{
+          binding[p[0]] = hash_fact[k];
+        }
         hash_key += hash_fact[k];
       });
       set[hash_key] = binding;
@@ -247,12 +272,19 @@ var qTuple = function(fb, tuple, orig_binding, callback){
       //de-hash the bindings
       λ.map(hash_bindings, function(binding, callback){
         λ.map(_.pairs(binding), function(p, callback){
-          if(_.isString(p[1])){
-            fb.hindex.get(p[1], function(err, val){
-              callback(err, [p[0], val]);
+          var var_name = p[0];
+          var var_value = p[1];
+          var decode = _.identity;
+          if(var_value && var_value.decode){
+            decode = var_value.decode;
+            var_value = var_value.hash;
+          }
+          if(_.isString(var_value)){
+            fb.hindex.get(var_value, function(err, val){
+              callback(err, [var_name, decode(val)]);
             });
           }else{
-            callback(null, [p[0], p[1]]);
+            callback(null, [var_name, var_value]);
           }
         }, function(err, pairs){
           callback(err, _.assign({}, orig_binding, _.object(pairs)));
