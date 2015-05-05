@@ -109,6 +109,26 @@ var loadUserSchema = function(fb, callback){
   });
 };
 
+var loadTheBaseSchema = function(hindex, callback){
+  var schema = {};
+  schema["_db/attribute-hashes"] = {};
+
+  λ.each(Object.keys(db_schema), function(a, done){
+    schema[a] = _.cloneDeep(db_schema[a]);
+    schema[a]["_db/attribute"] = a;
+
+    hindex.put(a, function(err, h){
+      if(err) return done(err);
+      schema[a]["_db/attribute-hash"] = h.hash;
+      schema["_db/attribute-hashes"][h.hash] = a;
+      done(null);
+    });
+  }, function(err){
+    if(err) return callback(err);
+    callback(null, schema);
+  });
+};
+
 module.exports = function(db, options, callback){
   options = options || {};
 
@@ -125,36 +145,40 @@ module.exports = function(db, options, callback){
     };
   };
 
-  var loadSchemaAsOf = function(txn, callback){
-    loadUserSchema(makeFB(txn, db_schema), function(err, user_schema){
-      if(err) return callback(err);
-      callback(null, _.assign({}, user_schema, db_schema));
-    });
-  };
-
-  getLatestedTxn(db, function(err, latest_transaction_n){
+  loadTheBaseSchema(hindex, function(err, base_schema){
     if(err) return callback(err);
 
-    loadSchemaAsOf(latest_transaction_n, function(err, latest_schema){
+    var loadSchemaAsOf = function(txn, callback){
+      loadUserSchema(makeFB(txn, base_schema), function(err, user_schema){
+        if(err) return callback(err);
+        callback(null, _.assign({}, user_schema, base_schema));
+      });
+    };
+
+    getLatestedTxn(db, function(err, latest_transaction_n){
       if(err) return callback(err);
 
-      callback(null, {
-        update: function(new_txn, schema_changes){
-          latest_transaction_n = new_txn;
-          latest_schema = _.assign({}, latest_schema, schema_changes);
-        },
-        snap: function(){
-          return makeFB(latest_transaction_n, latest_schema);
-        },
-        asOf: function(txn, callback){
-          loadSchemaAsOf(txn, function(err, schema){
-            if(err) return callback(err);
-            callback(null, makeFB(txn, schema));
-          });
-        },
-        loadSchemaFromIds: function(txn, ids, callback){
-          loadSchemaFromIds(makeFB(txn, db_schema), ids, callback);
-        }
+      loadSchemaAsOf(latest_transaction_n, function(err, latest_schema){
+        if(err) return callback(err);
+
+        callback(null, {
+          update: function(new_txn, schema_changes){
+            latest_transaction_n = new_txn;
+            latest_schema = _.assign({}, latest_schema, schema_changes);
+          },
+          snap: function(){
+            return makeFB(latest_transaction_n, latest_schema);
+          },
+          asOf: function(txn, callback){
+            loadSchemaAsOf(txn, function(err, schema){
+              if(err) return callback(err);
+              callback(null, makeFB(txn, schema));
+            });
+          },
+          loadSchemaFromIds: function(txn, ids, callback){
+            loadSchemaFromIds(makeFB(txn, base_schema), ids, callback);
+          }
+        });
       });
     });
   });

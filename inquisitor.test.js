@@ -43,7 +43,7 @@ var prophets = ["smith", "young", "taylor", "woodruff", "snow", "f. smith", "gra
 var setupProphetDataset = function(callback){
   var db = level(memdown);
   Transactor(db, {}, function(err, transactor){
-    if(err) return t.end(err);
+    if(err) return callback(err);
     λ.series([
       λ.curry(transactor.transact, [["01", "_db/attribute", "is"],
                                     ["01", "_db/type"     , "String"]], {})
