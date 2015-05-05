@@ -190,7 +190,7 @@ var SetOfBindings = function(fb, q_fact){
   if(isMultiValued(fb, q_fact.a.value)){
     only_the_latest = false;
   }
-  var is_attribute_unknown = q_fact.a.hasOwnProperty('var_name');
+  var is_attribute_unknown = q_fact.a.hasOwnProperty('var_name') || q_fact.a.hasOwnProperty('is_blank');
 
   var var_names = "eavto".split('').filter(function(k){
     return q_fact[k].hasOwnProperty('var_name');

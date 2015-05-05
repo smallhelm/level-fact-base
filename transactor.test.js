@@ -78,15 +78,15 @@ test("ensure transact persists stuff to the db", function(t){
         ["01", "_db/attribute", "name"],
         ["01", "_db/type"     , "String"],
         ["02", "_db/attribute", "age"],
-        ["02", "_db/type"     , "String"],
+        ["02", "_db/type"     , "Integer"],
         ["03", "_db/attribute", "user_id"],
         ["03", "_db/type"     , "Entity_ID"]
       ], {}),
       λ.curry(transactor.transact, [
         ["0001", "name", "bob"],
-        ["0001", "age",   "34"],
+        ["0001", "age",   34],
         ["0002", "name", "jim"],
-        ["0002", "age",   "23"]
+        ["0002", "age",   23]
       ], {user_id: "0001"})
     ], function(err){
       if(err) return t.end(err);
@@ -95,7 +95,7 @@ test("ensure transact persists stuff to the db", function(t){
       db.readStream().on('data', function(data){
         all_data.push(data);
       }).on('close', function(){
-        t.equals(all_data.length, 60);
+        t.equals(all_data.length, 61);
         t.end();
       });
     });

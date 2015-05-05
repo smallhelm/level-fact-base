@@ -18,6 +18,26 @@ var db_types = {
     encode: _.identity,
     decode: _.identity
   },
+  "Integer": {
+    validate: function(n){
+      return _.isNumber(n) && (n % 1 === 0);
+    },
+    encode: function(n){
+      return n.toString();
+    },
+    decode: function(s){
+      return parseInt(s, 10) || 0;
+    }
+  },
+  "Number": {
+    validate: _.isNumber,
+    encode: function(n){
+      return n.toString();
+    },
+    decode: function(s){
+      return parseFloat(s);
+    }
+  },
   "Boolean": {
     validate: function(v){
       return v === true || v === false;

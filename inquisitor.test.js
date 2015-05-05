@@ -270,11 +270,19 @@ test("attribute type encoding/decoding", function(t){
     if(err) return t.end(err);
 
     λ.series([
-      λ.curry(transactor.transact, [["0", "_db/attribute"      , "time"],
-                                    ["0", "_db/type"           , "Date"],
-                                    ["0", "_db/is-multi-valued", true]], {}),
+      λ.curry(transactor.transact, [["s0", "_db/attribute"      , "time"],
+                                    ["s0", "_db/type"           , "Date"],
+                                    ["s0", "_db/is-multi-valued", true],
 
-      λ.curry(transactor.transact, [["1", "time", new Date(2010, 11, 25)]], {})
+                                    ["s1", "_db/attribute"      , "int"],
+                                    ["s1", "_db/type"           , "Integer"],
+
+                                    ["s2", "_db/attribute"      , "float"],
+                                    ["s2", "_db/type"           , "Number"]], {}),
+
+      λ.curry(transactor.transact, [["1",  "time", new Date(2010, 11, 25)]], {}),
+      λ.curry(transactor.transact, [["2",   "int", 123]], {}),
+      λ.curry(transactor.transact, [["3", "float", 123.45]], {})
     ], function(err, fb_versions){
       if(err) return t.end(err);
       var fb = transactor.connection.snap();
@@ -282,13 +290,39 @@ test("attribute type encoding/decoding", function(t){
       t.ok(fb.schema.time["_db/is-multi-valued"] === true, "must also decode db default schema values");
 
       λ.concurrent({
-        time:    λ.curry(inq.q, fb, [["1", "time", "?time"]], [{}])
+        time1:    λ.curry(inq.q, fb, [["1", "time", "?val"]], [{}]),
+        integer1: λ.curry(inq.q, fb, [["2", "int", "?val"]], [{}]),
+        number1:  λ.curry(inq.q, fb, [["3", "float", "?val"]], [{}]),
+
+        //now query with variable attribute name
+        time2:    λ.curry(inq.q, fb, [["1", "?a", "?val"]], [{}]),
+        integer2: λ.curry(inq.q, fb, [["2", "?a", "?val"]], [{}]),
+        number2:  λ.curry(inq.q, fb, [["3", "?a", "?val"]], [{}]),
+
+        //now query with unknown attribute name
+        time3:    λ.curry(inq.q, fb, [["1", "?_", "?val"]], [{}]),
+        integer3: λ.curry(inq.q, fb, [["2", "?_", "?val"]], [{}]),
+        number3:  λ.curry(inq.q, fb, [["3", "?_", "?val"]], [{}])
       }, function(err, r){
         if(err) return t.end(err);
 
-        var time = r.time[0]['?time'];
+        t.ok(_.isDate(r.time1[0]['?val']));
+        t.ok(_.isDate(r.time2[0]['?val']));
+        t.ok(_.isDate(r.time3[0]['?val']));
 
-        t.ok(_.isDate(time));
+        t.ok(_.isNumber(r.integer1[0]['?val']));
+        t.ok(_.isNumber(r.integer2[0]['?val']));
+        t.ok(_.isNumber(r.integer3[0]['?val']));
+        t.equal(r.integer1[0]['?val'], 123);
+        t.equal(r.integer2[0]['?val'], 123);
+        t.equal(r.integer3[0]['?val'], 123);
+
+        t.ok(_.isNumber(r.number1[0]['?val']));
+        t.ok(_.isNumber(r.number2[0]['?val']));
+        t.ok(_.isNumber(r.number3[0]['?val']));
+        t.equal(r.number1[0]['?val'], 123.45);
+        t.equal(r.number2[0]['?val'], 123.45);
+        t.equal(r.number3[0]['?val'], 123.45);
 
         t.end();
       });
