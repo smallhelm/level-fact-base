@@ -177,36 +177,30 @@ var SetOfBindings = function(q_fact){
 
   var set = {};
   var latest_for = {};//latest for the same e+a
-  var add = function(only_the_latest, hash_fact){
-    var key_for_latest_for = only_the_latest ? hash_fact.e + hash_fact.a : _.uniqueId();
-
-    if(latest_for.hasOwnProperty(key_for_latest_for)){
-      if(latest_for[key_for_latest_for].txn > hash_fact.t){
-        return;//not the latest, so skip the rest
-      }
-    }
-    var binding = {};
-    var hash_key = '';//to ensure uniqueness
-    var_names.forEach(function(p){
-      var k = p[1];
-      binding[p[0]] = hash_fact[k];
-      hash_key += hash_fact[k];
-    });
-    set[hash_key] = binding;
-    latest_for[key_for_latest_for] = {txn: hash_fact.t, hash_key: hash_key};
-  };
-  var toArray = function(){
-    return _.unique(_.pluck(latest_for, 'hash_key')).map(function(key){
-      return set[key];
-    });
-  };
 
   return {
     add: function(only_the_latest, hash_fact){
-      add(only_the_latest, hash_fact);
+      var key_for_latest_for = only_the_latest ? hash_fact.e + hash_fact.a : _.uniqueId();
+
+      if(latest_for.hasOwnProperty(key_for_latest_for)){
+        if(latest_for[key_for_latest_for].txn > hash_fact.t){
+          return;//not the latest, so skip the rest
+        }
+      }
+      var binding = {};
+      var hash_key = '';//to ensure uniqueness
+      var_names.forEach(function(p){
+        var k = p[1];
+        binding[p[0]] = hash_fact[k];
+        hash_key += hash_fact[k];
+      });
+      set[hash_key] = binding;
+      latest_for[key_for_latest_for] = {txn: hash_fact.t, hash_key: hash_key};
     },
-    toArray: function(callback){
-      callback(null, toArray());
+    toArray: function(){
+      return _.unique(_.pluck(latest_for, 'hash_key')).map(function(key){
+        return set[key];
+      });
     }
   };
 };
@@ -239,28 +233,28 @@ var qTuple = function(fb, tuple, orig_binding, callback){
     var s = SetOfBindings(q_fact);
     forEachMatchingHashFact(fb, toMatcher(index_to_use, q_fact), function(hash_fact){
       if(only_the_latest && is_attribute_unknown){
-       only_the_latest = !isHashMultiValued(fb, hash_fact.a);
+        only_the_latest = !isHashMultiValued(fb, hash_fact.a);
       }
       s.add(only_the_latest, hash_fact);
     }, function(err){
       if(err) return callback(err);
 
-      s.toArray(function(err, hash_bindings){
-        //de-hash the bindings
-        λ.map(hash_bindings, function(binding, callback){
-          λ.map(_.pairs(binding), function(p, callback){
-            if(_.isString(p[1])){
-              fb.hindex.get(p[1], function(err, val){
-                callback(err, [p[0], val]);
-              });
-            }else{
-              callback(null, [p[0], p[1]]);
-            }
-          }, function(err, pairs){
-            callback(err, _.assign({}, orig_binding, _.object(pairs)));
-          });
-        }, callback);
-      });
+      var hash_bindings = s.toArray();
+
+      //de-hash the bindings
+      λ.map(hash_bindings, function(binding, callback){
+        λ.map(_.pairs(binding), function(p, callback){
+          if(_.isString(p[1])){
+            fb.hindex.get(p[1], function(err, val){
+              callback(err, [p[0], val]);
+            });
+          }else{
+            callback(null, [p[0], p[1]]);
+          }
+        }, function(err, pairs){
+          callback(err, _.assign({}, orig_binding, _.object(pairs)));
+        });
+      }, callback);
     });
   });
 };
