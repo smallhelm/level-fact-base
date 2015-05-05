@@ -167,7 +167,13 @@ var isHashMultiValued = function(fb, h){
   }
 };
 
-var SetOfBindings = function(q_fact){
+var SetOfBindings = function(fb, q_fact){
+
+  var only_the_latest = q_fact.t.is_blank;
+  if(isMultiValued(fb, q_fact.a.value)){
+    only_the_latest = false;
+  }
+  var is_attribute_unknown = q_fact.a.hasOwnProperty('var_name');
 
   var var_names = "eavto".split('').filter(function(k){
     return q_fact[k].hasOwnProperty('var_name');
@@ -179,7 +185,11 @@ var SetOfBindings = function(q_fact){
   var latest_for = {};//latest for the same e+a
 
   return {
-    add: function(only_the_latest, hash_fact){
+    add: function(hash_fact){
+      if(only_the_latest && is_attribute_unknown){
+        only_the_latest = !isHashMultiValued(fb, hash_fact.a);
+      }
+
       var key_for_latest_for = only_the_latest ? hash_fact.e + hash_fact.a : _.uniqueId();
 
       if(latest_for.hasOwnProperty(key_for_latest_for)){
@@ -224,18 +234,11 @@ var qTuple = function(fb, tuple, orig_binding, callback){
     }
     var index_to_use = selectIndex(q_fact);
 
-    var only_the_latest = q_fact.t.is_blank;
-    if(isMultiValued(fb, q_fact.a.value)){
-      only_the_latest = false;
-    }
     var is_attribute_unknown = q_fact.a.hasOwnProperty('var_name');
 
-    var s = SetOfBindings(q_fact);
+    var s = SetOfBindings(fb, q_fact);
     forEachMatchingHashFact(fb, toMatcher(index_to_use, q_fact), function(hash_fact){
-      if(only_the_latest && is_attribute_unknown){
-        only_the_latest = !isHashMultiValued(fb, hash_fact.a);
-      }
-      s.add(only_the_latest, hash_fact);
+      s.add(hash_fact);
     }, function(err){
       if(err) return callback(err);
 
