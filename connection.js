@@ -1,75 +1,8 @@
 var _ = require('lodash');
 var λ = require('contra');
 var inq = require('./inquisitor');
+var constants = require('./constants');
 var HashIndex = require('level-hash-index');
-
-var db_types = {
-  "Date": {
-    validate: _.isDate,
-    encode: function(d){
-      return d.toISOString();
-    },
-    decode: function(s){
-      return new Date(s);
-    }
-  },
-  "String": {
-    validate: _.isString,
-    encode: _.identity,
-    decode: _.identity
-  },
-  "Integer": {
-    validate: function(n){
-      return _.isNumber(n) && (n % 1 === 0);
-    },
-    encode: function(n){
-      return n.toString();
-    },
-    decode: function(s){
-      return parseInt(s, 10) || 0;
-    }
-  },
-  "Number": {
-    validate: _.isNumber,
-    encode: function(n){
-      return n.toString();
-    },
-    decode: function(s){
-      return parseFloat(s);
-    }
-  },
-  "Boolean": {
-    validate: function(v){
-      return v === true || v === false;
-    },
-    encode: function(v){
-      return v ? '1' : '0';
-    },
-    decode: function(s){
-      return s === '0' ? false : true;
-    }
-  },
-  "Entity_ID": {
-    validate: _.isString,
-    encode: _.identity,
-    decode: _.identity
-  }
-};
-
-var db_schema = {
-  "_db/type": {
-    "_db/type": "String"
-  },
-  "_db/attribute": {
-    "_db/type": "String"
-  },
-  "_db/is-multi-valued": {
-    "_db/type": "Boolean"
-  },
-  "_db/txn-time": {
-    "_db/type": "Date"
-  }
-};
 
 var getLatestedTxn = function(db, callback){
   var stream = db.createReadStream({
@@ -133,8 +66,8 @@ var loadTheBaseSchema = function(hindex, callback){
   var schema = {};
   schema["_db/attribute-hashes"] = {};
 
-  λ.each(Object.keys(db_schema), function(a, done){
-    schema[a] = _.cloneDeep(db_schema[a]);
+  λ.each(Object.keys(constants.db_schema), function(a, done){
+    schema[a] = _.cloneDeep(constants.db_schema[a]);
     schema[a]["_db/attribute"] = a;
 
     hindex.put(a, function(err, h){
@@ -157,7 +90,7 @@ module.exports = function(db, options, callback){
   var makeFB = function(txn, schema){
     return {
       txn: txn,
-      types: db_types,
+      types: constants.db_types,
       schema: schema,
 
       db: db,

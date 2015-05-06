@@ -1,8 +1,8 @@
 var _ = require('lodash');
 var λ = require('contra');
+var HashIndex = require('level-hash-index');
 var SchemaUtils = require('./schema-utils');
 var escapeRegExp = require('escape-regexp');
-var HashIndex = require('level-hash-index');
 var toPaddedBase36 = require('./utils/toPaddedBase36');
 
 var escapeVar = function(elm){
