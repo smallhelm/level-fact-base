@@ -329,3 +329,57 @@ test("attribute type encoding/decoding", function(t){
     });
   });
 });
+
+test("delayed join, and join order", function(t){
+  var db = level(memdown);
+  Transactor(db, {}, function(err, transactor){
+    if(err) return t.end(err);
+
+    transactor.transact([
+      ["0", "_db/attribute", "->"],
+      ["0", "_db/type"     , "Entity_ID"],
+      ["0", "_db/is-multi-valued", true]
+    ], {}, function(err){
+      if(err) return t.end(err);
+      transactor.transact([
+        ["a", "->", "c"],
+        ["a", "->", "d"],
+        ["a", "->", "e"],
+
+        ["b", "->", "f"],
+        ["b", "->", "g"],
+        ["b", "->", "h"],
+
+        ["d", "->", "g"]
+      ], {}, function(err, fb){
+        if(err) return t.end(err);
+
+        λ.concurrent({
+          one_row:         λ.curry(inq.q, fb, [["a", "->", "?va"]], [{}]),
+          no_join:         λ.curry(inq.q, fb, [["a", "->", "?va"],
+                                               ["b", "->", "?vb"]], [{}]),
+          da_join:         λ.curry(inq.q, fb, [["a", "->", "?va"],
+                                               ["b", "->", "?vb"],
+                                               ["?va", "->", "?vb"]], [{}]),
+          da_join_reverse: λ.curry(inq.q, fb, [["?va", "->", "?vb"],
+                                               ["a", "->", "?va"],
+                                               ["b", "->", "?vb"]], [{}]),
+          da_join_mix:     λ.curry(inq.q, fb, [["a", "->", "?va"],
+                                               ["?va", "->", "?vb"],
+                                               ["b", "->", "?vb"]], [{}])
+        }, function(err, r){
+          if(err) return t.end(err);
+
+          t.equal(r.one_row.length, 3, "should return everthing a points to");
+          t.equal(r.no_join.length, 9, "should return every combination of a and b pointers");
+
+          t.deepEqual(r.da_join, [{'?va': 'd', '?vb': 'g'}]);
+          t.deepEqual(r.da_join_reverse, r.da_join, "q tuple order shouldn't matter");
+          t.deepEqual(r.da_join_mix, r.da_join, "q tuple order shouldn't matter");
+
+          t.end();
+        });
+      });
+    });
+  });
+});
