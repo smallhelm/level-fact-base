@@ -131,7 +131,7 @@ var toMatcher = function(index_to_use, q_fact){
   var prefix_parts = [];
   var found_a_gap = false;
 
-  var regex = escapeRegExp(prefix) + index_to_use.split("").map(function(k){
+  var key_regex = new RegExp(escapeRegExp(prefix) + index_to_use.split("").map(function(k){
     if(q_fact[k].hasOwnProperty('hash')){
       if(!found_a_gap){
         prefix_parts.push(q_fact[k].hash);
@@ -141,11 +141,29 @@ var toMatcher = function(index_to_use, q_fact){
       found_a_gap = true;
       return '.*';
     }
-  }).join(escapeRegExp('!'));
+  }).join(escapeRegExp('!')));
 
   return {
     prefix: prefix + prefix_parts.join('!'),
-    matchRegExp: new RegExp(regex)
+    getHashFactIfKeyMatches: function(fb, key){
+      if(!key_regex.test(key)){
+        return false;
+      }
+      var hash_fact = parseKey(key);
+      if(hash_fact.t > fb.txn){
+        return false;//this fact is too new, so ignore it
+      }
+      if(q_fact.v.hasOwnProperty("type_not_yet_known")){
+        var type_name = getTypeNameForHash(fb, hash_fact.a);
+        if(!q_fact.v.type_not_yet_known.hasOwnProperty(type_name)){
+          return false;//just ignore this fact b/c types don't line up
+        }
+        if(q_fact.v.type_not_yet_known[type_name] !== hash_fact.v){
+          return false;//just ignore this fact b/c it's not the value the user specified
+        }
+      }
+      return hash_fact;
+    }
   };
 }; 
 
@@ -166,28 +184,16 @@ var parseKey = function(key){
   return hash_fact;
 };
 
-var forEachMatchingHashFact = function(fb, q_fact, matcher, iterator, done){
+var forEachMatchingHashFact = function(fb, matcher, iterator, done){
   fb.db.createReadStream({
     keys: true,
     values: false,
     gte: matcher.prefix + '\x00',
     lte: matcher.prefix + '\xFF',
   }).on('data', function(key){
-    if(!matcher.matchRegExp.test(key)){
-      return;
-    }
-    var hash_fact = parseKey(key);
-    if(hash_fact.t > fb.txn){
-      return;//this fact is too new, so ignore it
-    }
-    if(q_fact.v.hasOwnProperty("type_not_yet_known")){
-      var type_name = getTypeNameForHash(fb, hash_fact.a);
-      if(!q_fact.v.type_not_yet_known.hasOwnProperty(type_name)){
-        return;//just ignore this fact b/c types don't line up
-      }
-      if(q_fact.v.type_not_yet_known[type_name] !== hash_fact.v){
-        return;//just ignore this fact b/c it's not the value the user specified
-      }
+    var hash_fact = matcher.getHashFactIfKeyMatches(fb, key);
+    if(!hash_fact){
+      return;//just ignore and keep going
     }
     iterator(hash_fact);
   }).on('error', function(err){
@@ -317,7 +323,7 @@ var qTuple = function(fb, tuple, orig_binding, callback){
     var is_attribute_unknown = q_fact.a.hasOwnProperty('var_name');
 
     var s = SetOfBindings(fb, q_fact);
-    forEachMatchingHashFact(fb, q_fact, toMatcher(index_to_use, q_fact), function(hash_fact){
+    forEachMatchingHashFact(fb, toMatcher(index_to_use, q_fact), function(hash_fact){
       s.add(hash_fact);
     }, function(err){
       if(err) return callback(err);
