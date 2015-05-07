@@ -310,16 +310,20 @@ test("attribute type encoding/decoding", function(t){
         number4:  λ.curry(inq.q, fb, [["?e", "float", 123.45]], [{}]),
 
         //encode values at query with variable attribute name
-        //TODO time5:    λ.curry(inq.q, fb, [["?e", "?a", new Date(2010, 11, 25)]], [{}]),
-        //TODO integer5: λ.curry(inq.q, fb, [["?e", "?a", 123]], [{}]),
-        //TODO number5:  λ.curry(inq.q, fb, [["?e", "?a", 123.45]], [{}]),
+        time5:    λ.curry(inq.q, fb, [["?e", "?a", new Date(2010, 11, 25)]], [{}]),
+        integer5: λ.curry(inq.q, fb, [["?e", "?a", 123]], [{}]),
+        number5:  λ.curry(inq.q, fb, [["?e", "?a", 123.45]], [{}]),
 
         //encode values at query with unknown attribute name
-        //TODO time6:    λ.curry(inq.q, fb, [["?e", "?_", new Date(2010, 11, 25)]], [{}]),
-        //TODO integer6: λ.curry(inq.q, fb, [["?e", "?_", 123]], [{}]),
-        //TODO number6:  λ.curry(inq.q, fb, [["?e", "?_", 123.45]], [{}])
+        time6:    λ.curry(inq.q, fb, [["?e", "?_", new Date(2010, 11, 25)]], [{}]),
+        integer6: λ.curry(inq.q, fb, [["?e", "?_", 123]], [{}]),
+        number6:  λ.curry(inq.q, fb, [["?e", "?_", 123.45]], [{}])
       }, function(err, r){
         if(err) return t.end(err);
+
+        _.each(r, function(results, key){
+          t.equal(results.length, 1, "all these type encode/decode queries should return 1 result");
+        });
 
         t.ok(_.isDate(r.time1[0]['?val']));
         t.ok(_.isDate(r.time2[0]['?val']));
@@ -339,18 +343,15 @@ test("attribute type encoding/decoding", function(t){
         t.equal(r.number2[0]['?val'], 123.45);
         t.equal(r.number3[0]['?val'], 123.45);
 
-        _.each(r, function(results, key){
-          t.equal(results.length, 1);
-        });
         t.equal(r.time4[0]['?e'], "1");
-        //TODO t.equal(r.time5[0]['?e'], "1");
-        //TODO t.equal(r.time6[0]['?e'], "1");
+        t.equal(r.time5[0]['?e'], "1");
+        t.equal(r.time6[0]['?e'], "1");
         t.equal(r.integer4[0]['?e'], "2");
-        //TODO t.equal(r.integer5[0]['?e'], "2");
-        //TODO t.equal(r.integer6[0]['?e'], "2");
+        t.equal(r.integer5[0]['?e'], "2");
+        t.equal(r.integer6[0]['?e'], "2");
         t.equal(r.number4[0]['?e'], "3");
-        //TODO t.equal(r.number5[0]['?e'], "3");
-        //TODO t.equal(r.number6[0]['?e'], "3");
+        t.equal(r.number5[0]['?e'], "3");
+        t.equal(r.number6[0]['?e'], "3");
 
         t.end();
       });

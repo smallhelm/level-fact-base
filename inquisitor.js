@@ -30,6 +30,14 @@ var bindToTuple = function(tuple, binding){
   });
 };
 
+var parseElementThroughHIndex = function(fb, elm, callback){
+  elm = unEscapeVar(elm);
+  fb.hindex.getHash(elm, function(err, hash){
+    if(err) callback(err);
+    else callback(null, {hash: hash});
+  });
+}
+
 var parseElement = function(fb, tuple, i, callback){
   var elm = tuple.length < i + 1 ? '?_' : tuple[i];
   if(isTheThrowAwayVar(elm)){
@@ -37,26 +45,36 @@ var parseElement = function(fb, tuple, i, callback){
   }else if(isVar(elm)){
     callback(null, {var_name: elm});
   }else if(i < 2 && _.isString(elm)){
-    elm = unEscapeVar(elm);
-    fb.hindex.getHash(elm, function(err, hash){
-      if(err) callback(err);
-      else callback(null, {hash: hash});
-    });
+    parseElementThroughHIndex(fb, elm, callback);
   }else if(i === 2){
     var type = getTypeForAttribute(fb, tuple[1]);
     if(!type){
-      type = fb.types["String"];//TODO remove
-    }
-    if(!type){
-      callback(null, {type_not_yet_known: elm});
+      var type_not_yet_known = {};
+      λ.each(Object.keys(fb.types), function(type_name, next){
+        var type = fb.types[type_name];
+        if(type.validate(elm)){
+          parseElementThroughHIndex(fb, type.encode(elm), function(err, o){
+            if(err) return next(err);
+            type_not_yet_known[type_name] = o.hash;
+            next(null);
+          });
+        }else{
+          next(null);//just ignore it
+        }
+      }, function(err){
+        if(err) return callback(err);
+
+        if(_.size(type_not_yet_known) === 0){
+          callback(new Error('value in tuple has invalid type'));
+        }else if(_.size(type_not_yet_known) === 1){
+          callback(null, {hash: _.first(_.values(type_not_yet_known))});
+        }else{
+          callback(null, {type_not_yet_known: type_not_yet_known});
+        }
+      });
     }else{
       if(type.validate(elm)){
-        elm = type.encode(elm);
-        elm = unEscapeVar(elm);
-        fb.hindex.getHash(elm, function(err, hash){
-          if(err) callback(err);
-          else callback(null, {hash: hash});
-        });
+        parseElementThroughHIndex(fb, type.encode(elm), callback);
       }else{
         callback(new Error('value in tuple has invalid type'));
       }
@@ -148,7 +166,7 @@ var parseKey = function(key){
   return hash_fact;
 };
 
-var forEachMatchingHashFact = function(fb, matcher, iterator, done){
+var forEachMatchingHashFact = function(fb, q_fact, matcher, iterator, done){
   fb.db.createReadStream({
     keys: true,
     values: false,
@@ -161,6 +179,15 @@ var forEachMatchingHashFact = function(fb, matcher, iterator, done){
     var hash_fact = parseKey(key);
     if(hash_fact.t > fb.txn){
       return;//this fact is too new, so ignore it
+    }
+    if(q_fact.v.hasOwnProperty("type_not_yet_known")){
+      var type_name = getTypeNameForHash(fb, hash_fact.a);
+      if(!q_fact.v.type_not_yet_known.hasOwnProperty(type_name)){
+        return;//just ignore this fact b/c types don't line up
+      }
+      if(q_fact.v.type_not_yet_known[type_name] !== hash_fact.v){
+        return;//just ignore this fact b/c it's not the value the user specified
+      }
     }
     iterator(hash_fact);
   }).on('error', function(err){
@@ -198,6 +225,15 @@ var getTypeForHash = function(fb, h){
   try{
     var a = SchemaUtils.getAttributeFromHash_THIS_MAY_THROWUP(fb, h);
     return getTypeForAttribute(fb, a);
+  }catch(e){
+    return null;
+  }
+};
+
+var getTypeNameForHash = function(fb, h){
+  try{
+    var a = SchemaUtils.getAttributeFromHash_THIS_MAY_THROWUP(fb, h);
+    return SchemaUtils.getTypeNameForAttribute_THIS_MAY_THROWUP(fb, a);
   }catch(e){
     return null;
   }
@@ -281,7 +317,7 @@ var qTuple = function(fb, tuple, orig_binding, callback){
     var is_attribute_unknown = q_fact.a.hasOwnProperty('var_name');
 
     var s = SetOfBindings(fb, q_fact);
-    forEachMatchingHashFact(fb, toMatcher(index_to_use, q_fact), function(hash_fact){
+    forEachMatchingHashFact(fb, q_fact, toMatcher(index_to_use, q_fact), function(hash_fact){
       s.add(hash_fact);
     }, function(err){
       if(err) return callback(err);
