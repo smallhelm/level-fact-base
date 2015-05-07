@@ -1,8 +1,12 @@
-var isAttributeMultiValued_THIS_MAY_THROWUP = function(fb, a){
+var getAttributeDefinition_THIS_MAY_THROWUP = function(fb, a){
   if(!fb.schema.hasOwnProperty(a) || !fb.schema[a]){
     throw new Error("Attribute not found: " + a);
   }
-  return !!fb.schema[a]["_db/is-multi-valued"];
+  return fb.schema[a];
+};
+
+var isAttributeMultiValued_THIS_MAY_THROWUP = function(fb, a){
+  return !!getAttributeDefinition_THIS_MAY_THROWUP(fb, a)["_db/is-multi-valued"];
 };
 
 var getAttributeFromHash_THIS_MAY_THROWUP = function(fb, h){
@@ -14,10 +18,7 @@ var getAttributeFromHash_THIS_MAY_THROWUP = function(fb, h){
 };
 
 var getTypeNameForAttribute_THIS_MAY_THROWUP = function(fb, a){
-  if(!fb.schema.hasOwnProperty(a) || !fb.schema[a]){
-    throw new Error("Attribute not found: " + a);
-  }
-  var type_name = fb.schema[a]["_db/type"] || 'String';
+  var type_name = getAttributeDefinition_THIS_MAY_THROWUP(fb, a)["_db/type"] || 'String';
   if(!fb.types.hasOwnProperty(type_name)){
     throw new Error("Attribute " + a + " has an unknown type: " + type_name);
   }
