@@ -40,7 +40,7 @@ var parseElement = function(fb, tuple, i, callback){
     elm = unEscapeVar(elm);
     fb.hindex.getHash(elm, function(err, hash){
       if(err) callback(err);
-      else callback(null, {value: elm, hash: hash});
+      else callback(null, {hash: hash});
     });
   }else if(i === 2){
     var type = getTypeForAttribute(fb, tuple[1]);
@@ -55,7 +55,7 @@ var parseElement = function(fb, tuple, i, callback){
         elm = unEscapeVar(elm);
         fb.hindex.getHash(elm, function(err, hash){
           if(err) callback(err);
-          else callback(null, {value: elm, hash: hash});
+          else callback(null, {hash: hash});
         });
       }else{
         callback(new Error('value in tuple has invalid type'));
@@ -63,9 +63,9 @@ var parseElement = function(fb, tuple, i, callback){
     }
   }else if(i === 3 && _.isNumber(elm)){
     var txn = toPaddedBase36(elm, 6);
-    callback(null, {value: txn, hash: txn});
+    callback(null, {hash: txn});
   }else if(i === 4 && (elm === true || elm === false)){
-    callback(null, {value: elm, hash: elm});
+    callback(null, {hash: elm});
   }else{
     callback(new Error('element ' + i + ' in tuple has invalid type'));
   }
@@ -206,7 +206,7 @@ var getTypeForHash = function(fb, h){
 var SetOfBindings = function(fb, q_fact){
 
   var only_the_latest = q_fact.t.is_blank;
-  if(isMultiValued(fb, q_fact.a.value)){
+  if(isHashMultiValued(fb, q_fact.a.hash)){
     only_the_latest = false;
   }
   var is_attribute_unknown = q_fact.a.hasOwnProperty('var_name') || q_fact.a.hasOwnProperty('is_blank');
@@ -225,7 +225,7 @@ var SetOfBindings = function(fb, q_fact){
       if(only_the_latest && is_attribute_unknown){
         only_the_latest = !isHashMultiValued(fb, hash_fact.a);
       }
-      var type = is_attribute_unknown ? getTypeForHash(fb, hash_fact.a) : getTypeForAttribute(fb, q_fact.a.value);
+      var type = getTypeForHash(fb, is_attribute_unknown ? hash_fact.a : q_fact.a.hash);
 
       var key_for_latest_for = only_the_latest ? hash_fact.e + hash_fact.a : _.uniqueId();
 
@@ -238,7 +238,7 @@ var SetOfBindings = function(fb, q_fact){
       var hash_key = '';//to ensure uniqueness
       var_names.forEach(function(p){
         var k = p[1];
-        if(k === 'v' && type){
+        if(k === 'v'){
           binding[p[0]] = {
             hash: hash_fact[k],
             decode: type.decode
