@@ -36,7 +36,24 @@ var parseElementThroughHIndex = function(fb, elm, callback){
     if(err) callback(err);
     else callback(null, {hash: hash});
   });
-}
+};
+
+var getHashForEachType = function(fb, elm, callback){
+  var hash_by_type_name = {};
+  λ.each(Object.keys(fb.types), function(type_name, next){
+    var type = fb.types[type_name];
+    if(!type.validate(elm)){
+      return next(null);//just ignore it b/c elm must not be of that type
+    }
+    parseElementThroughHIndex(fb, type.encode(elm), function(err, o){
+      if(err) return next(err);
+      hash_by_type_name[type_name] = o.hash;
+      next(null);
+    });
+  }, function(err){
+    callback(err, hash_by_type_name)
+  });
+};
 
 var parseElement = function(fb, tuple, i, callback){
   var elm = tuple.length < i + 1 ? '?_' : tuple[i];
@@ -49,23 +66,11 @@ var parseElement = function(fb, tuple, i, callback){
   }else if(i === 2){
     var type = getTypeForAttribute(fb, tuple[1]);
     if(!type){
-      var type_not_yet_known = {};
-      λ.each(Object.keys(fb.types), function(type_name, next){
-        var type = fb.types[type_name];
-        if(type.validate(elm)){
-          parseElementThroughHIndex(fb, type.encode(elm), function(err, o){
-            if(err) return next(err);
-            type_not_yet_known[type_name] = o.hash;
-            next(null);
-          });
-        }else{
-          next(null);//just ignore it
-        }
-      }, function(err){
+      getHashForEachType(fb, elm, function(err, type_not_yet_known){
         if(err) return callback(err);
 
         if(_.size(type_not_yet_known) === 0){
-          callback(new Error('value in tuple has invalid type'));
+          callback(new Error('value in this query tuple is of an unkown type'));
         }else if(_.size(type_not_yet_known) === 1){
           callback(null, {hash: _.first(_.values(type_not_yet_known))});
         }else{
