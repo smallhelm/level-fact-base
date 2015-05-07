@@ -106,27 +106,37 @@ var parseTuple = function(fb, tuple, callback){
 
 var selectIndex = (function(){
   var getKnowns = function(q_fact){
-    var knowns = [];
-    "eav".split("").forEach(function(key){
-      if(q_fact[key].hasOwnProperty("hash")){
-        knowns.push(key);
-      }
+    var knowns = "";
+    "eavt".split("").forEach(function(key){
+      knowns += q_fact[key].hasOwnProperty("hash") ? key : "_";
     });
-    return knowns.sort().join("");
+    return knowns;
   };
   var mapping = {
-    '': 'eavto',
-    'e': 'eavto',
-    'a': 'aevto',
-    'v': 'vaeto',
-    'av': 'aveto',
-    'ev': 'eavto',
-    'ae': 'eavto',
-    'aev': 'eavto',
+    ____: ["eavto"],
+
+    e___: ["eavto"],
+    ea__: ["eavto"],
+    e_v_: ["eavto"],
+    e__t: ["eavto"],
+    eav_: ["eavto"],
+    ea_t: ["eavto"],
+    e_vt: ["eavto"],
+    eavt: ["eavto"],
+
+    _a__: ["aevto"],
+    _av_: ["aveto", "aevto"],
+    _a_t: ["aevto"],
+    _avt: ["aveto", "aevto"],
+
+    __v_: ["vaeto", "eavto"],
+    __vt: ["vaeto", "eavto"],
+
+    ___t: ["teavo"]
   };
   return function(q_fact){
-    return 'eavto';//TODO select the index based on attribute schema
-    return mapping[getKnowns(q_fact)];
+    var indexes = mapping[getKnowns(q_fact)];
+    return _.last(indexes);//TODO select the index based on attribute schema
   };
 }());
 
