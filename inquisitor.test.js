@@ -294,15 +294,30 @@ test("attribute type encoding/decoding", function(t){
         integer1: λ.curry(inq.q, fb, [["2", "int", "?val"]], [{}]),
         number1:  λ.curry(inq.q, fb, [["3", "float", "?val"]], [{}]),
 
-        //now query with variable attribute name
+        //query with variable attribute name
         time2:    λ.curry(inq.q, fb, [["1", "?a", "?val"]], [{}]),
         integer2: λ.curry(inq.q, fb, [["2", "?a", "?val"]], [{}]),
         number2:  λ.curry(inq.q, fb, [["3", "?a", "?val"]], [{}]),
 
-        //now query with unknown attribute name
+        //query with unknown attribute name
         time3:    λ.curry(inq.q, fb, [["1", "?_", "?val"]], [{}]),
         integer3: λ.curry(inq.q, fb, [["2", "?_", "?val"]], [{}]),
-        number3:  λ.curry(inq.q, fb, [["3", "?_", "?val"]], [{}])
+        number3:  λ.curry(inq.q, fb, [["3", "?_", "?val"]], [{}]),
+        
+        //encode values at query with known attribute name
+        time4:    λ.curry(inq.q, fb, [["?e", "time", new Date(2010, 11, 25)]], [{}]),
+        integer4: λ.curry(inq.q, fb, [["?e", "int", 123]], [{}]),
+        number4:  λ.curry(inq.q, fb, [["?e", "float", 123.45]], [{}]),
+
+        //encode values at query with variable attribute name
+        //TODO time5:    λ.curry(inq.q, fb, [["?e", "?a", new Date(2010, 11, 25)]], [{}]),
+        //TODO integer5: λ.curry(inq.q, fb, [["?e", "?a", 123]], [{}]),
+        //TODO number5:  λ.curry(inq.q, fb, [["?e", "?a", 123.45]], [{}]),
+
+        //encode values at query with unknown attribute name
+        //TODO time6:    λ.curry(inq.q, fb, [["?e", "?_", new Date(2010, 11, 25)]], [{}]),
+        //TODO integer6: λ.curry(inq.q, fb, [["?e", "?_", 123]], [{}]),
+        //TODO number6:  λ.curry(inq.q, fb, [["?e", "?_", 123.45]], [{}])
       }, function(err, r){
         if(err) return t.end(err);
 
@@ -323,6 +338,19 @@ test("attribute type encoding/decoding", function(t){
         t.equal(r.number1[0]['?val'], 123.45);
         t.equal(r.number2[0]['?val'], 123.45);
         t.equal(r.number3[0]['?val'], 123.45);
+
+        _.each(r, function(results, key){
+          t.equal(results.length, 1);
+        });
+        t.equal(r.time4[0]['?e'], "1");
+        //TODO t.equal(r.time5[0]['?e'], "1");
+        //TODO t.equal(r.time6[0]['?e'], "1");
+        t.equal(r.integer4[0]['?e'], "2");
+        //TODO t.equal(r.integer5[0]['?e'], "2");
+        //TODO t.equal(r.integer6[0]['?e'], "2");
+        t.equal(r.number4[0]['?e'], "3");
+        //TODO t.equal(r.number5[0]['?e'], "3");
+        //TODO t.equal(r.number6[0]['?e'], "3");
 
         t.end();
       });

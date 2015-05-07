@@ -30,18 +30,37 @@ var bindToTuple = function(tuple, binding){
   });
 };
 
-var parseElement = function(hindex, tuple, i, callback){
+var parseElement = function(fb, tuple, i, callback){
   var elm = tuple.length < i + 1 ? '?_' : tuple[i];
   if(isTheThrowAwayVar(elm)){
     callback(null, {is_blank: true});
   }else if(isVar(elm)){
     callback(null, {var_name: elm});
-  }else if(i < 3 && _.isString(elm)){
+  }else if(i < 2 && _.isString(elm)){
     elm = unEscapeVar(elm);
-    hindex.getHash(elm, function(err, hash){
+    fb.hindex.getHash(elm, function(err, hash){
       if(err) callback(err);
       else callback(null, {value: elm, hash: hash});
     });
+  }else if(i === 2){
+    var type = getTypeForAttribute(fb, tuple[1]);
+    if(!type){
+      type = fb.types["String"];//TODO remove
+    }
+    if(!type){
+      callback(null, {type_not_yet_known: elm});
+    }else{
+      if(type.validate(elm)){
+        elm = type.encode(elm);
+        elm = unEscapeVar(elm);
+        fb.hindex.getHash(elm, function(err, hash){
+          if(err) callback(err);
+          else callback(null, {value: elm, hash: hash});
+        });
+      }else{
+        callback(new Error('value in tuple has invalid type'));
+      }
+    }
   }else if(i === 3 && _.isNumber(elm)){
     var txn = toPaddedBase36(elm, 6);
     callback(null, {value: txn, hash: txn});
@@ -52,13 +71,13 @@ var parseElement = function(hindex, tuple, i, callback){
   }
 };
 
-var parseTuple = function(hindex, tuple, callback){
+var parseTuple = function(fb, tuple, callback){
   λ.concurrent({
-    e: λ.curry(parseElement, hindex, tuple, 0),
-    a: λ.curry(parseElement, hindex, tuple, 1),
-    v: λ.curry(parseElement, hindex, tuple, 2),
-    t: λ.curry(parseElement, hindex, tuple, 3),
-    o: λ.curry(parseElement, hindex, tuple, 4)
+    e: λ.curry(parseElement, fb, tuple, 0),
+    a: λ.curry(parseElement, fb, tuple, 1),
+    v: λ.curry(parseElement, fb, tuple, 2),
+    t: λ.curry(parseElement, fb, tuple, 3),
+    o: λ.curry(parseElement, fb, tuple, 4)
   }, callback);
 };
 
@@ -249,7 +268,7 @@ var qTuple = function(fb, tuple, orig_binding, callback){
     return callback(new Error("binding must be a plain object"));
   }
 
-  parseTuple(fb.hindex, bindToTuple(tuple, orig_binding), function(err, q_fact){
+  parseTuple(fb, bindToTuple(tuple, orig_binding), function(err, q_fact){
     if(err){
       if(err.type === 'NotFoundError'){
         //one of the tuple values were not found in the hash, so there must be no results
