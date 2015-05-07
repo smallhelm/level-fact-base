@@ -53,20 +53,24 @@ var db_types = {
   }
 };
 
-var db_schema = {
-  "_db/type": {
+var db_schema = [
+  {
+    "_db/attribute": "_db/attribute",
     "_db/type": "String"
   },
-  "_db/attribute": {
+  {
+    "_db/attribute": "_db/type",
     "_db/type": "String"
   },
-  "_db/is-multi-valued": {
+  {
+    "_db/attribute": "_db/is-multi-valued",
     "_db/type": "Boolean"
   },
-  "_db/txn-time": {
+  {
+    "_db/attribute": "_db/txn-time",
     "_db/type": "Date"
   }
-};
+];
 
 module.exports = {
   db_types: db_types,

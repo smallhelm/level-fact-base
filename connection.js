@@ -22,53 +22,13 @@ var getLatestedTxn = function(db, callback){
   });
 };
 
-var loadSchemaFromIds = function(fb, ids, callback){
-  λ.map(ids, function(id, callback){
-    inq.getEntity(fb, id, callback);
-  }, function(err, entities){
-    if(err) return callback(err);
-
-    var schema = {};
-    schema["_db/attribute-hashes"] = {};
-
-    λ.each(entities, function(entity, callback){
-      if(!_.has(entity, "_db/attribute")){
-        return callback(null);//just ignore it
-      }
-      var a = entity["_db/attribute"];
-      schema[a] = entity;
-
-      fb.hindex.getHash(a, function(err, hash){
-        if(err) return callback(err);
-
-        schema[a]["_db/attribute-hash"] = hash
-        schema["_db/attribute-hashes"][hash] = a;
-
-        callback(null);//done with this entity
-      });
-    }, function(err){
-      callback(err, schema);
-    });
-  });
-};
-
-var loadUserSchema = function(fb, callback){
-  inq.q(fb, [["?attr_id", "_db/attribute"]], [{}], function(err, results){
-    if(err) return callback(err);
-
-    loadSchemaFromIds(fb, results.map(function(result){
-      return result["?attr_id"];
-    }), callback);
-  });
-};
-
-var loadTheBaseSchema = function(hindex, callback){
+var buildSchemaFromEntities = function(hindex, entities, callback){
   var schema = {};
   schema["_db/attribute-hashes"] = {};
 
-  λ.each(Object.keys(constants.db_schema), function(a, done){
-    schema[a] = _.cloneDeep(constants.db_schema[a]);
-    schema[a]["_db/attribute"] = a;
+  λ.each(entities, function(entity, done){
+    var a = entity["_db/attribute"];
+    schema[a] = _.cloneDeep(entity);
 
     hindex.put(a, function(err, h){
       if(err) return done(err);
@@ -79,6 +39,26 @@ var loadTheBaseSchema = function(hindex, callback){
   }, function(err){
     if(err) return callback(err);
     callback(null, schema);
+  });
+};
+
+var loadSchemaFromIds = function(fb, ids, callback){
+  λ.map(ids, function(id, callback){
+    inq.getEntity(fb, id, callback);
+  }, function(err, entities){
+    if(err) return callback(err);
+
+    buildSchemaFromEntities(fb.hindex, entities, callback);
+  });
+};
+
+var loadUserSchema = function(fb, callback){
+  inq.q(fb, [["?attr_id", "_db/attribute"]], [{}], function(err, results){
+    if(err) return callback(err);
+
+    loadSchemaFromIds(fb, results.map(function(result){
+      return result["?attr_id"];
+    }), callback);
   });
 };
 
@@ -98,7 +78,7 @@ module.exports = function(db, options, callback){
     };
   };
 
-  loadTheBaseSchema(hindex, function(err, base_schema){
+  buildSchemaFromEntities(hindex, constants.db_schema, function(err, base_schema){
     if(err) return callback(err);
 
     var loadSchemaAsOf = function(txn, callback){
