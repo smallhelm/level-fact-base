@@ -95,7 +95,7 @@ test("ensure transact persists stuff to the db", function(t){
       db.readStream().on('data', function(data){
         all_data.push(data);
       }).on('close', function(){
-        t.equals(all_data.length, 61);
+        t.equals(all_data.length, 74);
         t.end();
       });
     });

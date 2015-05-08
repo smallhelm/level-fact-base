@@ -38,13 +38,5 @@ module.exports = {
     var a = getAttributeFromHash_THIS_MAY_THROWUP(fb, h);
     return isAttributeMultiValued_THIS_MAY_THROWUP(fb, a);
   },
-  getAttributeFromHash_THIS_MAY_THROWUP: getAttributeFromHash_THIS_MAY_THROWUP,
-  getIndexesForAttribute: function(fb, a){
-    //TODO implement the right way
-    return [
-      'eavto',
-      'aevto',
-      'teavo'//log
-    ];
-  }
+  getAttributeFromHash_THIS_MAY_THROWUP: getAttributeFromHash_THIS_MAY_THROWUP
 };

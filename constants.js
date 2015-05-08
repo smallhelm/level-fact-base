@@ -74,5 +74,11 @@ var db_schema = [
 
 module.exports = {
   db_types: db_types,
-  db_schema: db_schema
+  db_schema: db_schema,
+  index_names: [
+    'eavto',
+    'aveto',
+    'vaeto',
+    'teavo'
+  ]
 };

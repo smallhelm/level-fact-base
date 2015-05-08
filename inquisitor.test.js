@@ -215,7 +215,7 @@ test("escaping '?...' values", function(t){
         not_a_throw_away:     λ.curry(inq.q, fb, [["?id", "name", "\\?_"]], [{}]),
         not_a_throw_away2:    λ.curry(inq.q, fb, [["?id", "name", "?name"]], [{"?name": "?_"}]),
       }, function(err, r){
-        t.deepEqual(r.should_be_a_var, [{"?id": "1", "?notavar": "?notavar"}, {"?id": "2", "?notavar": "notavar"}, {"?id": "3", "?notavar": "\\?notavar"}, {"?id": "4", "?notavar": "\\\\"}, {"?id": "5", "?notavar": "?_"}]);
+        t.deepEqual(_.sortBy(r.should_be_a_var, "?id"), [{"?id": "1", "?notavar": "?notavar"}, {"?id": "2", "?notavar": "notavar"}, {"?id": "3", "?notavar": "\\?notavar"}, {"?id": "4", "?notavar": "\\\\"}, {"?id": "5", "?notavar": "?_"}]);
         t.deepEqual(r.bind_it, [{"?id": "1", "?name": "?notavar"}]);
         t.deepEqual(r.escape_it, [{"?id": "1"}]);
         t.deepEqual(r.bind_it2, [{"?id": "3", "?name": "\\?notavar"}]);

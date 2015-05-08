@@ -5,6 +5,7 @@ var AsyncQ = require('./any-value-async-q');
 var SchemaUtils = require('./schema-utils');
 var HashIndex = require('level-hash-index');
 var Connection = require('./connection');
+var constants = require('./constants');
 var toPaddedBase36 = require('./utils/toPaddedBase36');
 
 var tupleToDBOps = function(fb, txn, tuple, callback){
@@ -23,7 +24,7 @@ var tupleToDBOps = function(fb, txn, tuple, callback){
       }
     });
 
-    var indexes = SchemaUtils.getIndexesForAttribute(fb, tuple[1]);
+    var indexes = constants.index_names;
 
     indexes.forEach(function(index){
       ops.push({type: 'put', key: index + '!' + index.split('').map(function(k){

@@ -113,30 +113,29 @@ var selectIndex = (function(){
     return knowns;
   };
   var mapping = {
-    ____: ["eavto"],
+    ____: "eavto",
 
-    e___: ["eavto"],
-    ea__: ["eavto"],
-    e_v_: ["eavto"],
-    e__t: ["eavto"],
-    eav_: ["eavto"],
-    ea_t: ["eavto"],
-    e_vt: ["eavto"],
-    eavt: ["eavto"],
+    e___: "eavto",
+    ea__: "eavto",
+    e_v_: "eavto",
+    eav_: "eavto",
 
-    _a__: ["aevto"],
-    _av_: ["aveto", "aevto"],
-    _a_t: ["aevto"],
-    _avt: ["aveto", "aevto"],
+    _a__: "aveto",
+    _av_: "aveto",
 
-    __v_: ["vaeto", "eavto"],
-    __vt: ["vaeto", "eavto"],
+    __v_: "vaeto",
 
-    ___t: ["teavo"]
+    ___t: "teavo",
+    e__t: "teavo",
+    ea_t: "teavo",
+    e_vt: "teavo",
+    eavt: "teavo",
+    _a_t: "teavo",
+    _avt: "teavo",
+    __vt: "teavo"
   };
   return function(q_fact){
-    var indexes = mapping[getKnowns(q_fact)];
-    return _.last(indexes);//TODO select the index based on attribute schema
+    return mapping[getKnowns(q_fact)];
   };
 }());
 
