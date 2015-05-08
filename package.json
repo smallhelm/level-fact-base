@@ -3,10 +3,16 @@
   "version": "0.0.0",
   "description": "Store \"facts\" in level and query them via datalog",
   "main": "index.js",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/smallhelm/level-fact-base.git"
-  },
+  "files": [
+    "index.js",
+    "constants.js",
+    "connection.js",
+    "inquisitor.js",
+    "transactor.js",
+    "schema-utils.js",
+    "any-value-async-q.js",
+    "utils/toPaddedBase36.js"
+  ],
   "keywords": [
     "level",
     "levelup",
@@ -17,6 +23,10 @@
   ],
   "author": "smallhelm",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/smallhelm/level-fact-base.git"
+  },
   "bugs": {
     "url": "https://github.com/smallhelm/level-fact-base/issues"
   },
@@ -31,10 +41,10 @@
     "test": "node tests.js | tap-dot"
   },
   "dependencies": {
-    "contra": "^1.8.0",
+    "contra": "1.8.1",
     "escape-regexp": "0.0.1",
     "level-errors": "^1.0.3",
-    "level-hash-index": "^0.1.1",
-    "lodash": "^3.6.0"
+    "level-hash-index": "0.1.1",
+    "lodash": "3.8.0"
   }
 }
