@@ -15,7 +15,7 @@ var tupleToDBOps = function(fb, txn, tuple, callback){
     var ops = [];
     var fact = {
       t: toPaddedBase36(txn, 6),//for lexo-graphic sorting
-      o: tuple[3] === false ? 0 : 1//default to 1
+      o: tuple[3]
     };
     'eav'.split('').forEach(function(k, i){
       fact[k] = hash_datas[i].hash;

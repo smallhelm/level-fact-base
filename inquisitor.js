@@ -274,7 +274,7 @@ var SetOfBindings = function(fb, q_fact){
   });
 
   var set = {};
-  var latest_for = {};//latest for the same e+a
+  var latest_for = {};
 
   return {
     add: function(hash_fact){
@@ -283,7 +283,7 @@ var SetOfBindings = function(fb, q_fact){
       }
       var type = getTypeForHash(fb, is_attribute_unknown ? hash_fact.a : q_fact.a.hash);
 
-      var key_for_latest_for = only_the_latest ? hash_fact.e + hash_fact.a : _.uniqueId();
+      var key_for_latest_for = hash_fact.e + hash_fact.a + (only_the_latest ? '' : hash_fact.v);
 
       if(latest_for.hasOwnProperty(key_for_latest_for)){
         if(latest_for[key_for_latest_for].txn > hash_fact.t){
@@ -305,10 +305,17 @@ var SetOfBindings = function(fb, q_fact){
         hash_key += hash_fact[k];
       });
       set[hash_key] = binding;
-      latest_for[key_for_latest_for] = {txn: hash_fact.t, hash_key: hash_key};
+      latest_for[key_for_latest_for] = {
+        op: hash_fact.o,
+        txn: hash_fact.t,
+        hash_key: hash_key
+      };
     },
     toArray: function(){
-      return _.unique(_.pluck(latest_for, 'hash_key')).map(function(key){
+      var is_the_op_a_var = q_fact.o.hasOwnProperty('var_name');
+      return _.unique(_.pluck(_.filter(latest_for, function(d){
+        return is_the_op_a_var ? true : d.op;//remove retractions
+      }), 'hash_key')).map(function(key){
         return set[key];
       });
     }

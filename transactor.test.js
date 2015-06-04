@@ -172,3 +172,70 @@ test("transactions must be done serially, in the order they are recieved", funct
     });
   });
 });
+
+var setUpRetractTest = function(multiValued, callback){
+  var db = level(memdown);
+  Transactor(db, {}, function(err, transactor){
+    if(err) return callback(err);
+
+    λ.series([
+      λ.curry(transactor.transact, [["1", "_db/attribute", "email"],
+                                    ["1", "_db/type"     , "String"],
+                                    ["1", "_db/is-multi-valued", multiValued]], {}),
+      λ.curry(transactor.transact, [["bob", "email", "email@1"]], {}),
+      λ.curry(transactor.transact, [["bob", "email", "email@2"]], {}),
+      λ.curry(transactor.transact, [["bob", "email", "email@2", false]], {}),
+      λ.curry(transactor.transact, [["bob", "email", "email@3"]], {}),
+      λ.curry(transactor.transact, [["bob", "email", "email@2"]], {}),
+      λ.curry(transactor.transact, [["bob", "email", "email@1", false]], {}),
+      λ.curry(transactor.transact, [["bob", "email", "email@2", false]], {}),
+      λ.curry(transactor.transact, [["bob", "email", "email@3", false]], {})
+    ], function(err, fbs){
+      if(err) return callback(err);
+
+      λ.map.series(fbs, function(fb, callback){
+        inq.q(fb, [['bob', 'email', '?email']], [{}], function(err, results){
+          callback(err, _.pluck(results, '?email').sort());
+        });
+      }, callback);
+    });
+  });
+};
+
+test("retracting facts", function(t){
+  setUpRetractTest(false, function(err, emails_over_time){
+    if(err) return t.end(err);
+
+    t.deepEquals(emails_over_time, [
+        [],
+        ['email@1'],
+        ['email@2'],
+        [],
+        ['email@3'],
+        ['email@2'],
+        [],
+        [],
+        []
+    ]);
+    t.end();
+  });
+});
+
+test("retracting multi-valued facts", function(t){
+  setUpRetractTest(true, function(err, emails_over_time){
+    if(err) return t.end(err);
+
+    t.deepEquals(emails_over_time, [
+        [],
+        ['email@1'],
+        ['email@1', 'email@2'],
+        ['email@1'],
+        ['email@1', 'email@3'],
+        ['email@1', 'email@2', 'email@3'],
+        ['email@2', 'email@3'],
+        ['email@3'],
+        []
+    ]);
+    t.end();
+  });
+});
