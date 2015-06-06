@@ -96,6 +96,10 @@ var factTuplesToSchemaChanges = function(conn, txn, fact_tuples, callback){
 };
 
 module.exports = function(db, options, onStartup){
+  if(arguments.length === 2){
+    onStartup = options;
+    options = {};
+  }
   options = options || {};
 
   var hindex = HashIndex(db);
@@ -135,6 +139,10 @@ module.exports = function(db, options, onStartup){
     onStartup(null, {
       connection: conn,
       transact: function(fact_tuples, tx_data, callback){
+        if(arguments.length === 2){
+          callback = tx_data;
+          tx_data = {};
+        }
         q.push([fact_tuples, tx_data], callback);
       }
     });

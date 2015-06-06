@@ -323,7 +323,10 @@ var SetOfBindings = function(fb, q_fact){
 };
 
 var qTuple = function(fb, tuple, orig_binding, callback){
-
+  if(arguments.length === 3){
+    callback = orig_binding;
+    orig_binding = {};
+  }
   if(!fb || !fb.hindex || !fb.db || !fb.schema || !fb.types){
     return callback(new Error("Must pass fb as the first argument"));
   }
@@ -380,6 +383,10 @@ var qTuple = function(fb, tuple, orig_binding, callback){
 };
 
 var q = function(fb, tuples, bindings, callback){
+  if(arguments.length === 3){
+    callback = bindings;
+    bindings = [{}];
+  }
   if(!_.isArray(tuples)){
     return callback(new Error("q expects an array of tuples"));
   }

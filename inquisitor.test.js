@@ -57,10 +57,10 @@ test("basic qTuple stuff", function(t){
   setupMiddleDataset(function(err, fb){
     if(err) return t.end(err);
     λ.concurrent({
-      axl_mother:           λ.curry(inq.qTuple, fb, ["axl",       "mother", "?mother"], {}),
+      axl_mother:           λ.curry(inq.qTuple, fb, ["axl",       "mother", "?mother"]),
       axl_relation_to_mike: λ.curry(inq.qTuple, fb, ["axl",    "?relation", "mike"], {}),
       mikes_children:       λ.curry(inq.qTuple, fb, ["?children", "father", "?father"], {"?father": "mike"}),
-      axl_has_no_children:  λ.curry(inq.qTuple, fb, ["?children", "father", "axl"], {})
+      axl_has_no_children:  λ.curry(inq.qTuple, fb, ["?children", "father", "axl"])
     }, function(err, r){
       t.deepEqual(_.pluck(r.axl_mother, "?mother"), ["frankie"]);
       t.deepEqual(_.pluck(r.axl_relation_to_mike, "?relation"), ["father"]);
@@ -76,7 +76,7 @@ test("do some family tree questions", function(t){
     if(err) return t.end(err);
     λ.concurrent({
       husbands_and_wifes:   λ.curry(inq.q, fb, [["?child", "mother", "?wife"],
-                                                ["?child", "father", "?husband"]], [{}]),
+                                                ["?child", "father", "?husband"]]),
 
       sue_grandfathers:     λ.curry(inq.q, fb, [[    "sue", "father", "?father"],
                                                 [    "sue", "mother", "?mother"],
@@ -101,11 +101,11 @@ test("queries using txn", function(t){
     if(err) return t.end(err);
     var fb = _.last(fb_versions);
     λ.concurrent({
-      first:          λ.curry(inq.q, fb, [["prophet", "is", "?name",      2]], [{}]),
-      third:          λ.curry(inq.q, fb, [["prophet", "is", "?name",      4]], [{}]),
-      when_was_young: λ.curry(inq.q, fb, [["prophet", "is", "young", "?txn"]], [{}]),
-      who_is_current: λ.curry(inq.q, fb, [["prophet", "is", "?name"        ]], [{}]),
-      names_in_order: λ.curry(inq.q, fb, [["prophet", "is", "?name", "?txn"]], [{}])
+      first:          λ.curry(inq.q, fb, [["prophet", "is", "?name",      2]]),
+      third:          λ.curry(inq.q, fb, [["prophet", "is", "?name",      4]]),
+      when_was_young: λ.curry(inq.q, fb, [["prophet", "is", "young", "?txn"]]),
+      who_is_current: λ.curry(inq.q, fb, [["prophet", "is", "?name"        ]]),
+      names_in_order: λ.curry(inq.q, fb, [["prophet", "is", "?name", "?txn"]])
     }, function(err, r){
       t.deepEqual(_.pluck(r.first, "?name"), ["smith"]);
       t.deepEqual(_.pluck(r.third, "?name"), ["taylor"]);
@@ -122,7 +122,7 @@ test("queries using fb_versions", function(t){
     if(err) return t.end(err);
     λ.map(fb_versions, function(fb, callback){
       //run the same query on each version of the db
-      inq.q(fb, [["prophet", "is", "?name"]], [{}], callback);
+      inq.q(fb, [["prophet", "is", "?name"]], callback);
     }, function(err, r){
       r.map(function(bindings, i){
         t.deepEqual(
@@ -137,21 +137,21 @@ test("queries using fb_versions", function(t){
 
 test("getEntity", function(t){
   var db = level(memdown);
-  Transactor(db, {}, function(err, transactor){
+  Transactor(db, function(err, transactor){
     if(err) return t.end(err);
     λ.series([
       λ.curry(transactor.transact, [["01", "_db/attribute", "email"],
                                     ["01", "_db/type"     , "String"],
                                     ["02", "_db/attribute", "name"],
-                                    ["02", "_db/type"     , "String"]], {}),
+                                    ["02", "_db/type"     , "String"]]),
 
       λ.curry(transactor.transact, [["u0", "email", "andy@email.com"],
-                                    ["u0", "name",  "andy"]], {}),
+                                    ["u0", "name",  "andy"]]),
 
       λ.curry(transactor.transact, [["u1", "email", "opie@email.com"],
-                                    ["u1", "name",  "opie"]], {}),
+                                    ["u1", "name",  "opie"]]),
 
-      λ.curry(transactor.transact, [["u0", "email", "new@email.com"]], {})
+      λ.curry(transactor.transact, [["u0", "email", "new@email.com"]])
     ], function(err){
       if(err) return t.end(err);
       var fb = transactor.connection.snap();
@@ -172,7 +172,7 @@ test("getEntity", function(t){
 test("handle invalid fb", function(t){
   var testFB = function(fb){
     return function(callback){
-      inq.qTuple(fb, ["axl", "mother", "?mother"], {}, function(err, bindings){
+      inq.qTuple(fb, ["axl", "mother", "?mother"], function(err, bindings){
         callback(null, err ? err : bindings);
       });
     };
@@ -202,8 +202,8 @@ test("the throw-away binding", function(t){
   setupMiddleDataset(function(err, fb){
     if(err) return t.end(err);
     λ.concurrent({
-      all_entities: λ.curry(inq.q, fb, [["?entity"]], [{}]),
-      all_fathers:  λ.curry(inq.q, fb, [["?_", "father", "?father"]], [{}]),
+      all_entities: λ.curry(inq.q, fb, [["?entity"]]),
+      all_fathers:  λ.curry(inq.q, fb, [["?_", "father", "?father"]]),
       sue_siblings: λ.curry(inq.q, fb, [[    "?sue", "mother", "?_"],
                                         ["?sibling", "mother", "?_"]], [{"?sue": "sue"}])
     }, function(err, r){
@@ -225,25 +225,25 @@ test("escaping '?...' values", function(t){
     if(err) return t.end(err);
     λ.series([
       λ.curry(transactor.transact, [["0", "_db/attribute", "name"],
-                                    ["0", "_db/type"     , "String"]], {}),
+                                    ["0", "_db/type"     , "String"]]),
 
       λ.curry(transactor.transact, [["1", "name", "?notavar"],
                                     ["2", "name", "notavar"],
                                     ["3", "name", "\\?notavar"],
                                     ["4", "name", "\\\\"],
-                                    ["5", "name", "?_"]], {})
+                                    ["5", "name", "?_"]])
     ], function(err){
       if(err) return t.end(err);
       var fb = transactor.connection.snap();
       λ.concurrent({
-        should_be_a_var:      λ.curry(inq.q, fb, [["?id", "name", "?notavar"]], [{}]),
+        should_be_a_var:      λ.curry(inq.q, fb, [["?id", "name", "?notavar"]]),
         bind_it:              λ.curry(inq.q, fb, [["?id", "name", "?name"]], [{"?name": "?notavar"}]),
-        escape_it:            λ.curry(inq.q, fb, [["?id", "name", "\\?notavar"]], [{}]),
+        escape_it:            λ.curry(inq.q, fb, [["?id", "name", "\\?notavar"]]),
         bind_it2:             λ.curry(inq.q, fb, [["?id", "name", "?name"]], [{"?name": "\\?notavar"}]),
-        not_actually_escaped: λ.curry(inq.q, fb, [["?id", "name", "\\\\?notavar"]], [{}]),
-        double_slash:         λ.curry(inq.q, fb, [["?id", "name", "\\\\\\"]], [{}]),
+        not_actually_escaped: λ.curry(inq.q, fb, [["?id", "name", "\\\\?notavar"]]),
+        double_slash:         λ.curry(inq.q, fb, [["?id", "name", "\\\\\\"]]),
         double_slash_bind:    λ.curry(inq.q, fb, [["?id", "name", "?name"]], [{"?name": "\\\\"}]),
-        not_a_throw_away:     λ.curry(inq.q, fb, [["?id", "name", "\\?_"]], [{}]),
+        not_a_throw_away:     λ.curry(inq.q, fb, [["?id", "name", "\\?_"]]),
         not_a_throw_away2:    λ.curry(inq.q, fb, [["?id", "name", "?name"]], [{"?name": "?_"}]),
       }, function(err, r){
         t.deepEqual(_.sortBy(r.should_be_a_var, "?id"), [{"?id": "1", "?notavar": "?notavar"}, {"?id": "2", "?notavar": "notavar"}, {"?id": "3", "?notavar": "\\?notavar"}, {"?id": "4", "?notavar": "\\\\"}, {"?id": "5", "?notavar": "?_"}]);
@@ -263,23 +263,23 @@ test("escaping '?...' values", function(t){
 
 test("multi-valued attributes", function(t){
   var db = level(memdown);
-  Transactor(db, {}, function(err, transactor){
+  Transactor(db, function(err, transactor){
     if(err) return t.end(err);
 
     λ.series([
       λ.curry(transactor.transact, [["0", "_db/attribute"      , "emails"],
                                     ["0", "_db/type"           , "String"],
-                                    ["0", "_db/is-multi-valued", true]], {}),
+                                    ["0", "_db/is-multi-valued", true]]),
 
-      λ.curry(transactor.transact, [["me", "emails", "1@email"]], {}),
+      λ.curry(transactor.transact, [["me", "emails", "1@email"]]),
       λ.curry(transactor.transact, [["me", "emails", "2@email"],
-                                    ["me", "emails", "3@email"]], {})
+                                    ["me", "emails", "3@email"]])
     ], function(err, fb_versions){
       if(err) return t.end(err);
       var fb = transactor.connection.snap();
 
       λ.concurrent({
-        my_emails:    λ.curry(inq.q, fb, [["me", "emails", "?emails"]], [{}]),
+        my_emails:    λ.curry(inq.q, fb, [["me", "emails", "?emails"]]),
         the_first_me: λ.curry(inq.getEntity, fb_versions[1], "me"),
         the_last_me:  λ.curry(inq.getEntity, fb, "me")
       }, function(err, r){
@@ -297,7 +297,7 @@ test("multi-valued attributes", function(t){
 
 test("attribute type encoding/decoding", function(t){
   var db = level(memdown);
-  Transactor(db, {}, function(err, transactor){
+  Transactor(db, function(err, transactor){
     if(err) return t.end(err);
 
     λ.series([
@@ -309,11 +309,11 @@ test("attribute type encoding/decoding", function(t){
                                     ["s1", "_db/type"           , "Integer"],
 
                                     ["s2", "_db/attribute"      , "float"],
-                                    ["s2", "_db/type"           , "Number"]], {}),
+                                    ["s2", "_db/type"           , "Number"]]),
 
-      λ.curry(transactor.transact, [["1",  "time", new Date(2010, 11, 25)]], {}),
-      λ.curry(transactor.transact, [["2",   "int", 123]], {}),
-      λ.curry(transactor.transact, [["3", "float", 123.45]], {})
+      λ.curry(transactor.transact, [["1",  "time", new Date(2010, 11, 25)]]),
+      λ.curry(transactor.transact, [["2",   "int", 123]]),
+      λ.curry(transactor.transact, [["3", "float", 123.45]])
     ], function(err, fb_versions){
       if(err) return t.end(err);
       var fb = transactor.connection.snap();
@@ -321,34 +321,34 @@ test("attribute type encoding/decoding", function(t){
       t.ok(fb.schema.time["_db/is-multi-valued"] === true, "must also decode db default schema values");
 
       λ.concurrent({
-        time1:    λ.curry(inq.q, fb, [["1", "time", "?val"]], [{}]),
-        integer1: λ.curry(inq.q, fb, [["2", "int", "?val"]], [{}]),
-        number1:  λ.curry(inq.q, fb, [["3", "float", "?val"]], [{}]),
+        time1:    λ.curry(inq.q, fb, [["1", "time", "?val"]]),
+        integer1: λ.curry(inq.q, fb, [["2", "int", "?val"]]),
+        number1:  λ.curry(inq.q, fb, [["3", "float", "?val"]]),
 
         //query with variable attribute name
-        time2:    λ.curry(inq.q, fb, [["1", "?a", "?val"]], [{}]),
-        integer2: λ.curry(inq.q, fb, [["2", "?a", "?val"]], [{}]),
-        number2:  λ.curry(inq.q, fb, [["3", "?a", "?val"]], [{}]),
+        time2:    λ.curry(inq.q, fb, [["1", "?a", "?val"]]),
+        integer2: λ.curry(inq.q, fb, [["2", "?a", "?val"]]),
+        number2:  λ.curry(inq.q, fb, [["3", "?a", "?val"]]),
 
         //query with unknown attribute name
-        time3:    λ.curry(inq.q, fb, [["1", "?_", "?val"]], [{}]),
-        integer3: λ.curry(inq.q, fb, [["2", "?_", "?val"]], [{}]),
-        number3:  λ.curry(inq.q, fb, [["3", "?_", "?val"]], [{}]),
+        time3:    λ.curry(inq.q, fb, [["1", "?_", "?val"]]),
+        integer3: λ.curry(inq.q, fb, [["2", "?_", "?val"]]),
+        number3:  λ.curry(inq.q, fb, [["3", "?_", "?val"]]),
         
         //encode values at query with known attribute name
-        time4:    λ.curry(inq.q, fb, [["?e", "time", new Date(2010, 11, 25)]], [{}]),
-        integer4: λ.curry(inq.q, fb, [["?e", "int", 123]], [{}]),
-        number4:  λ.curry(inq.q, fb, [["?e", "float", 123.45]], [{}]),
+        time4:    λ.curry(inq.q, fb, [["?e", "time", new Date(2010, 11, 25)]]),
+        integer4: λ.curry(inq.q, fb, [["?e", "int", 123]]),
+        number4:  λ.curry(inq.q, fb, [["?e", "float", 123.45]]),
 
         //encode values at query with variable attribute name
-        time5:    λ.curry(inq.q, fb, [["?e", "?a", new Date(2010, 11, 25)]], [{}]),
-        integer5: λ.curry(inq.q, fb, [["?e", "?a", 123]], [{}]),
-        number5:  λ.curry(inq.q, fb, [["?e", "?a", 123.45]], [{}]),
+        time5:    λ.curry(inq.q, fb, [["?e", "?a", new Date(2010, 11, 25)]]),
+        integer5: λ.curry(inq.q, fb, [["?e", "?a", 123]]),
+        number5:  λ.curry(inq.q, fb, [["?e", "?a", 123.45]]),
 
         //encode values at query with unknown attribute name
-        time6:    λ.curry(inq.q, fb, [["?e", "?_", new Date(2010, 11, 25)]], [{}]),
-        integer6: λ.curry(inq.q, fb, [["?e", "?_", 123]], [{}]),
-        number6:  λ.curry(inq.q, fb, [["?e", "?_", 123.45]], [{}])
+        time6:    λ.curry(inq.q, fb, [["?e", "?_", new Date(2010, 11, 25)]]),
+        integer6: λ.curry(inq.q, fb, [["?e", "?_", 123]]),
+        number6:  λ.curry(inq.q, fb, [["?e", "?_", 123.45]])
       }, function(err, r){
         if(err) return t.end(err);
 
@@ -392,14 +392,14 @@ test("attribute type encoding/decoding", function(t){
 
 test("delayed join, and join order", function(t){
   var db = level(memdown);
-  Transactor(db, {}, function(err, transactor){
+  Transactor(db, function(err, transactor){
     if(err) return t.end(err);
 
     transactor.transact([
       ["0", "_db/attribute", "->"],
       ["0", "_db/type"     , "Entity_ID"],
       ["0", "_db/is-multi-valued", true]
-    ], {}, function(err){
+    ], function(err){
       if(err) return t.end(err);
       transactor.transact([
         ["a", "->", "c"],
@@ -411,22 +411,22 @@ test("delayed join, and join order", function(t){
         ["b", "->", "h"],
 
         ["d", "->", "g"]
-      ], {}, function(err, fb){
+      ], function(err, fb){
         if(err) return t.end(err);
 
         λ.concurrent({
-          one_row:         λ.curry(inq.q, fb, [["a", "->", "?va"]], [{}]),
+          one_row:         λ.curry(inq.q, fb, [["a", "->", "?va"]]),
           no_join:         λ.curry(inq.q, fb, [["a", "->", "?va"],
-                                               ["b", "->", "?vb"]], [{}]),
+                                               ["b", "->", "?vb"]]),
           da_join:         λ.curry(inq.q, fb, [["a", "->", "?va"],
                                                ["b", "->", "?vb"],
-                                               ["?va", "->", "?vb"]], [{}]),
+                                               ["?va", "->", "?vb"]]),
           da_join_reverse: λ.curry(inq.q, fb, [["?va", "->", "?vb"],
                                                ["a", "->", "?va"],
-                                               ["b", "->", "?vb"]], [{}]),
+                                               ["b", "->", "?vb"]]),
           da_join_mix:     λ.curry(inq.q, fb, [["a", "->", "?va"],
                                                ["?va", "->", "?vb"],
-                                               ["b", "->", "?vb"]], [{}])
+                                               ["b", "->", "?vb"]])
         }, function(err, r){
           if(err) return t.end(err);
 
