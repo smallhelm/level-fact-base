@@ -169,6 +169,35 @@ test("getEntity", function(t){
   });
 });
 
+test("handle invalid fb", function(t){
+  var testFB = function(fb){
+    return function(callback){
+      inq.qTuple(fb, ["axl", "mother", "?mother"], {}, function(err, bindings){
+        callback(null, err ? err : bindings);
+      });
+    };
+  };
+  setupMiddleDataset(function(err, fb){
+    if(err) return t.end(err);
+    λ.concurrent([
+      testFB(fb),
+      testFB(null),
+      testFB(undefined),
+      testFB(10),
+      testFB(true),
+      testFB(fb.txn),
+      testFB({}),
+      testFB({hindex: fb.hindex})
+    ], function(err, r){
+      t.deepEqual(r[0], [{"?mother": "frankie"}]);
+      _.each(_.rest(r), function(err){
+        t.deepEqual(err, new Error("Must pass fb as the first argument"));
+      });
+      t.end(err);
+    });
+  });
+});
+
 test("the throw-away binding", function(t){
   setupMiddleDataset(function(err, fb){
     if(err) return t.end(err);

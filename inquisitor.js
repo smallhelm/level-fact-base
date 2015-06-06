@@ -324,6 +324,9 @@ var SetOfBindings = function(fb, q_fact){
 
 var qTuple = function(fb, tuple, orig_binding, callback){
 
+  if(!fb || !fb.hindex || !fb.db || !fb.schema || !fb.types){
+    return callback(new Error("Must pass fb as the first argument"));
+  }
   if(!_.isArray(tuple)){
     return callback(new Error("tuple must be an array"));
   }
