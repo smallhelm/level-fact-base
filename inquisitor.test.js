@@ -170,28 +170,40 @@ test("getEntity", function(t){
 });
 
 test("handle invalid fb", function(t){
-  var testFB = function(fb){
+  var errPassingCurry = function(){
+    var args = _.toArray(arguments);
+    var fn = _.first(args);
+    var fn_args = _.rest(args);
     return function(callback){
-      inq.qTuple(fb, ["axl", "mother", "?mother"], function(err, bindings){
-        callback(null, err ? err : bindings);
+      fn_args.push(function(err, o){
+        callback(null, err ? err : o);
       });
+      fn.apply(null, fn_args);
     };
+  };
+  var testFB = function(fb, callback){
+    λ.concurrent({
+      q:         errPassingCurry(inq.q, fb, [["?sue", "mother", "?mother"],
+                                             ["?sibling", "mother", "?mother"]], [{"?sue": "sue"}]),
+      qTuple:    errPassingCurry(inq.qTuple, fb, ["axl", "mother", "?mother"]),
+      getEntity: errPassingCurry(inq.getEntity, fb, "axl")
+    }, callback);
   };
   setupMiddleDataset(function(err, fb){
     if(err) return t.end(err);
-    λ.concurrent([
-      testFB(fb),
-      testFB(null),
-      testFB(undefined),
-      testFB(10),
-      testFB(true),
-      testFB(fb.txn),
-      testFB({}),
-      testFB({hindex: fb.hindex})
-    ], function(err, r){
-      t.deepEqual(r[0], [{"?mother": "frankie"}]);
+    λ.map([fb, null, undefined, 10, true, fb.txn, {}, {hindex: fb.hindex}, ["one"], [[]]], testFB, function(err, r){
+      //assert the valid fb works
+      t.deepEqual(_.unique(_.pluck(r[0].q, "?sibling")).sort(), ["axl", "brick", "sue"]);
+      t.deepEqual(r[0].qTuple, [{"?mother": "frankie"}]);
+      t.deepEqual(r[0].getEntity, {father: "mike", mother: "frankie"});
+
+      //assert the rest all fail b/c fb is not valid
       _.each(_.rest(r), function(err){
-        t.deepEqual(err, new Error("Must pass fb as the first argument"));
+        t.deepEqual(err, {
+          q: new Error("Must pass fb as the first argument"),
+          qTuple: new Error("Must pass fb as the first argument"),
+          getEntity: new Error("Must pass fb as the first argument")
+        });
       });
       t.end(err);
     });

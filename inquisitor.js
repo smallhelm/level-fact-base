@@ -322,14 +322,19 @@ var SetOfBindings = function(fb, q_fact){
   };
 };
 
+var assertFB = function(fb){
+  if(!fb || !fb.hindex || !fb.db || !fb.schema || !fb.types){
+    throw new Error("Must pass fb as the first argument");
+  }
+};
+
 var qTuple = function(fb, tuple, orig_binding, callback){
   if(arguments.length === 3){
     callback = orig_binding;
     orig_binding = {};
   }
-  if(!fb || !fb.hindex || !fb.db || !fb.schema || !fb.types){
-    return callback(new Error("Must pass fb as the first argument"));
-  }
+  try{assertFB(fb);}catch(e){return callback(e);}
+
   if(!_.isArray(tuple)){
     return callback(new Error("tuple must be an array"));
   }
@@ -387,6 +392,7 @@ var q = function(fb, tuples, bindings, callback){
     callback = bindings;
     bindings = [{}];
   }
+  try{assertFB(fb);}catch(e){return callback(e);}
   if(!_.isArray(tuples)){
     return callback(new Error("q expects an array of tuples"));
   }
@@ -413,6 +419,8 @@ module.exports = {
   q: q,
   qTuple: qTuple,
   getEntity: function(fb, e, callback){
+    try{assertFB(fb);}catch(e){return callback(e);}
+
     q(fb, [["?e", "?a", "?v"]], [{"?e": e}], function(err, results){
       if(err) return callback(err);
       if(results.length === 0){
