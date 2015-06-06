@@ -405,6 +405,9 @@ module.exports = {
   getEntity: function(fb, e, callback){
     q(fb, [["?e", "?a", "?v"]], [{"?e": e}], function(err, results){
       if(err) return callback(err);
+      if(results.length === 0){
+        return callback(null, null);
+      }
       var o = {};
       results.forEach(function(result){
         var a = result["?a"];

@@ -157,10 +157,12 @@ test("getEntity", function(t){
       var fb = transactor.connection.snap();
       λ.concurrent({
         u0: λ.curry(inq.getEntity, fb, "u0"),
-        u1: λ.curry(inq.getEntity, fb, "u1")
+        u1: λ.curry(inq.getEntity, fb, "u1"),
+        u2: λ.curry(inq.getEntity, fb, "u2")
       }, function(err, r){
         t.deepEqual(r.u0, {name: "andy", email: "new@email.com"});
         t.deepEqual(r.u1, {name: "opie", email: "opie@email.com"});
+        t.deepEqual(r.u2, null);
         t.end(err);
       });
     });
