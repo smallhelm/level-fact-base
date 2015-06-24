@@ -1,6 +1,5 @@
 var _ = require('lodash');
 var λ = require('contra');
-var inq = require('./inquisitor');
 var AsyncQ = require('./any-value-async-q');
 var SchemaUtils = require('./schema-utils');
 var HashIndex = require('level-hash-index');

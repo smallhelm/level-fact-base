@@ -1,3 +1,4 @@
+var q = require('./q');
 var inq = require('./inquisitor');
 var getEntity = require('./getEntity');
 var Transactor = require('./transactor');
@@ -17,7 +18,7 @@ module.exports = function(db, options, onStartup){
       snap: transactor.connection.snap,
       asOf: transactor.connection.asOf,
 
-      q: inq.q,
+      q: q,
       qTuple: inq.qTuple,
       getEntity: getEntity
     });

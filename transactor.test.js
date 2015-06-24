@@ -1,6 +1,6 @@
 var _ = require('lodash');
 var λ = require('contra');
-var inq = require('./inquisitor');
+var q = require('./q');
 var test = require('tape');
 var level = require('levelup');
 var memdown = require('memdown');
@@ -120,7 +120,7 @@ test("ensure transactor warms up with the latest transaction id", function(t){
       if(err) return t.end(err);
 
       var fb = transactor.connection.snap();
-      inq.q(fb, [["?_", "?_", "?_", "?txn"]], [{}], function(err, results){
+      q(fb, [["?_", "?_", "?_", "?txn"]], [{}], function(err, results){
         if(err) return t.end(err);
 
         var txns = _.unique(_.pluck(results, "?txn")).sort();
@@ -133,7 +133,7 @@ test("ensure transactor warms up with the latest transaction id", function(t){
           transactor2.transact([["bob", "is", "NOT cool"]], {}, function(err, fb2){
             if(err) return t.end(err);
 
-            inq.q(fb2, [["?_", "?_", "?_", "?txn"]], [{}], function(err, results){
+            q(fb2, [["?_", "?_", "?_", "?txn"]], [{}], function(err, results){
               var txns = _.unique(_.pluck(results, "?txn")).sort();
               t.deepEqual(txns, [1, 2, 3, 4, 5]);
               t.end(err);
@@ -194,7 +194,7 @@ var setUpRetractTest = function(multiValued, callback){
       if(err) return callback(err);
 
       λ.map.series(fbs, function(fb, callback){
-        inq.q(fb, [['bob', 'email', '?email']], [{}], function(err, results){
+        q(fb, [['bob', 'email', '?email']], [{}], function(err, results){
           callback(err, _.pluck(results, '?email').sort());
         });
       }, callback);

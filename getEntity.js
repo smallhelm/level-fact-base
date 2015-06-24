@@ -1,5 +1,5 @@
 var _ = require('lodash');
-var q = require('./inquisitor').q;
+var q = require('./q');
 var assertFB = require('./utils/assertFB');
 var SchemaUtils = require('./schema-utils');
 

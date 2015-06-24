@@ -1,6 +1,6 @@
 var _ = require('lodash');
 var λ = require('contra');
-var q = require('./inquisitor').q;
+var q = require('./q');
 var constants = require('./constants');
 var HashIndex = require('level-hash-index');
 var getEntity = require('./getEntity');
