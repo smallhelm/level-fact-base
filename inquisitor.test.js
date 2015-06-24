@@ -1,9 +1,9 @@
 var _ = require('lodash');
 var λ = require('contra');
 var q = require('./q');
-var inq = require('./inquisitor');
 var test = require('tape');
 var level = require('levelup');
+var qTuple = require('./qTuple');
 var memdown = require('memdown');
 var getEntity = require('./getEntity');
 var Transactor = require('./transactor');
@@ -59,10 +59,10 @@ test("basic qTuple stuff", function(t){
   setupMiddleDataset(function(err, fb){
     if(err) return t.end(err);
     λ.concurrent({
-      axl_mother:           λ.curry(inq.qTuple, fb, ["axl",       "mother", "?mother"]),
-      axl_relation_to_mike: λ.curry(inq.qTuple, fb, ["axl",    "?relation", "mike"], {}),
-      mikes_children:       λ.curry(inq.qTuple, fb, ["?children", "father", "?father"], {"?father": "mike"}),
-      axl_has_no_children:  λ.curry(inq.qTuple, fb, ["?children", "father", "axl"])
+      axl_mother:           λ.curry(qTuple, fb, ["axl",       "mother", "?mother"]),
+      axl_relation_to_mike: λ.curry(qTuple, fb, ["axl",    "?relation", "mike"], {}),
+      mikes_children:       λ.curry(qTuple, fb, ["?children", "father", "?father"], {"?father": "mike"}),
+      axl_has_no_children:  λ.curry(qTuple, fb, ["?children", "father", "axl"])
     }, function(err, r){
       t.deepEqual(_.pluck(r.axl_mother, "?mother"), ["frankie"]);
       t.deepEqual(_.pluck(r.axl_relation_to_mike, "?relation"), ["father"]);
@@ -153,7 +153,7 @@ test("handle invalid fb", function(t){
     λ.concurrent({
       q:         errPassingCurry(q, fb, [["?sue", "mother", "?mother"],
                                          ["?sibling", "mother", "?mother"]], [{"?sue": "sue"}]),
-      qTuple:    errPassingCurry(inq.qTuple, fb, ["axl", "mother", "?mother"]),
+      qTuple:    errPassingCurry(qTuple, fb, ["axl", "mother", "?mother"]),
       getEntity: errPassingCurry(getEntity, fb, "axl")
     }, callback);
   };

@@ -1,6 +1,6 @@
 var _ = require('lodash');
 var λ = require('contra');
-var qTuple = require('./inquisitor').qTuple;
+var qTuple = require('./qTuple');
 var assertFB = require('./utils/assertFB');
 
 module.exports = function(fb, tuples, bindings, callback){

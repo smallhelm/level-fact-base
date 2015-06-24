@@ -1,7 +1,6 @@
 var _ = require('lodash');
 var λ = require('contra');
 var assertFB = require('./utils/assertFB');
-var HashIndex = require('level-hash-index');
 var SchemaUtils = require('./schema-utils');
 var escapeRegExp = require('escape-regexp');
 var toPaddedBase36 = require('./utils/toPaddedBase36');
@@ -218,14 +217,6 @@ var forEachMatchingHashFact = function(fb, matcher, iterator, done){
   });
 };
 
-var isMultiValued = function(fb, a){
-  try{
-    return SchemaUtils.isAttributeMultiValued_THIS_MAY_THROWUP(fb, a);
-  }catch(e){
-    return false;
-  }
-};
-
 var isHashMultiValued = function(fb, h){
   try{
     return SchemaUtils.isAttributeHashMultiValued_THIS_MAY_THROWUP(fb, h);
@@ -323,7 +314,7 @@ var SetOfBindings = function(fb, q_fact){
   };
 };
 
-var qTuple = function(fb, tuple, orig_binding, callback){
+module.exports = function(fb, tuple, orig_binding, callback){
   if(arguments.length === 3){
     callback = orig_binding;
     orig_binding = {};
@@ -380,8 +371,4 @@ var qTuple = function(fb, tuple, orig_binding, callback){
       }, callback);
     });
   });
-};
-
-module.exports = {
-  qTuple: qTuple
 };

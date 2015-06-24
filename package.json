@@ -7,7 +7,7 @@
     "index.js",
     "constants.js",
     "connection.js",
-    "inquisitor.js",
+    "qTuple.js",
     "transactor.js",
     "schema-utils.js",
     "any-value-async-q.js",

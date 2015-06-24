@@ -1,5 +1,5 @@
 var q = require('./q');
-var inq = require('./inquisitor');
+var qTuple = require('./qTuple');
 var getEntity = require('./getEntity');
 var Transactor = require('./transactor');
 
@@ -19,7 +19,7 @@ module.exports = function(db, options, onStartup){
       asOf: transactor.connection.asOf,
 
       q: q,
-      qTuple: inq.qTuple,
+      qTuple: qTuple,
       getEntity: getEntity
     });
   });
