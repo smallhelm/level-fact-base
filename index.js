@@ -1,4 +1,5 @@
 var inq = require('./inquisitor');
+var getEntity = require('./getEntity');
 var Transactor = require('./transactor');
 
 module.exports = function(db, options, onStartup){
@@ -18,7 +19,7 @@ module.exports = function(db, options, onStartup){
 
       q: inq.q,
       qTuple: inq.qTuple,
-      getEntity: inq.getEntity
+      getEntity: getEntity
     });
   });
 };

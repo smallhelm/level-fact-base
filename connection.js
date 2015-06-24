@@ -1,8 +1,9 @@
 var _ = require('lodash');
 var λ = require('contra');
-var inq = require('./inquisitor');
+var q = require('./inquisitor').q;
 var constants = require('./constants');
 var HashIndex = require('level-hash-index');
+var getEntity = require('./getEntity');
 
 var getLatestedTxn = function(db, callback){
   var stream = db.createReadStream({
@@ -44,7 +45,7 @@ var buildSchemaFromEntities = function(hindex, entities, callback){
 
 var loadSchemaFromIds = function(fb, ids, callback){
   λ.map(ids, function(id, callback){
-    inq.getEntity(fb, id, callback);
+    getEntity(fb, id, callback);
   }, function(err, entities){
     if(err) return callback(err);
 
@@ -53,7 +54,7 @@ var loadSchemaFromIds = function(fb, ids, callback){
 };
 
 var loadUserSchema = function(fb, callback){
-  inq.q(fb, [["?attr_id", "_db/attribute"]], [{}], function(err, results){
+  q(fb, [["?attr_id", "_db/attribute"]], [{}], function(err, results){
     if(err) return callback(err);
 
     loadSchemaFromIds(fb, results.map(function(result){

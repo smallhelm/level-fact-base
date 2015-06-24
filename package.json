@@ -11,6 +11,8 @@
     "transactor.js",
     "schema-utils.js",
     "any-value-async-q.js",
+    "getEntity.js",
+    "utils/assertFB.js",
     "utils/toPaddedBase36.js"
   ],
   "keywords": [

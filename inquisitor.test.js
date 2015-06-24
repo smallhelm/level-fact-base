@@ -4,6 +4,7 @@ var inq = require('./inquisitor');
 var test = require('tape');
 var level = require('levelup');
 var memdown = require('memdown');
+var getEntity = require('./getEntity');
 var Transactor = require('./transactor');
 var genRandomString = require('./utils/genRandomString');
 
@@ -135,40 +136,6 @@ test("queries using fb_versions", function(t){
   });
 });
 
-test("getEntity", function(t){
-  var db = level(memdown);
-  Transactor(db, function(err, transactor){
-    if(err) return t.end(err);
-    λ.series([
-      λ.curry(transactor.transact, [["01", "_db/attribute", "email"],
-                                    ["01", "_db/type"     , "String"],
-                                    ["02", "_db/attribute", "name"],
-                                    ["02", "_db/type"     , "String"]]),
-
-      λ.curry(transactor.transact, [["u0", "email", "andy@email.com"],
-                                    ["u0", "name",  "andy"]]),
-
-      λ.curry(transactor.transact, [["u1", "email", "opie@email.com"],
-                                    ["u1", "name",  "opie"]]),
-
-      λ.curry(transactor.transact, [["u0", "email", "new@email.com"]])
-    ], function(err){
-      if(err) return t.end(err);
-      var fb = transactor.connection.snap();
-      λ.concurrent({
-        u0: λ.curry(inq.getEntity, fb, "u0"),
-        u1: λ.curry(inq.getEntity, fb, "u1"),
-        u2: λ.curry(inq.getEntity, fb, "u2")
-      }, function(err, r){
-        t.deepEqual(r.u0, {name: "andy", email: "new@email.com"});
-        t.deepEqual(r.u1, {name: "opie", email: "opie@email.com"});
-        t.deepEqual(r.u2, null);
-        t.end(err);
-      });
-    });
-  });
-});
-
 test("handle invalid fb", function(t){
   var errPassingCurry = function(){
     var args = _.toArray(arguments);
@@ -186,7 +153,7 @@ test("handle invalid fb", function(t){
       q:         errPassingCurry(inq.q, fb, [["?sue", "mother", "?mother"],
                                              ["?sibling", "mother", "?mother"]], [{"?sue": "sue"}]),
       qTuple:    errPassingCurry(inq.qTuple, fb, ["axl", "mother", "?mother"]),
-      getEntity: errPassingCurry(inq.getEntity, fb, "axl")
+      getEntity: errPassingCurry(getEntity, fb, "axl")
     }, callback);
   };
   setupMiddleDataset(function(err, fb){
@@ -292,8 +259,8 @@ test("multi-valued attributes", function(t){
 
       λ.concurrent({
         my_emails:    λ.curry(inq.q, fb, [["me", "emails", "?emails"]]),
-        the_first_me: λ.curry(inq.getEntity, fb_versions[1], "me"),
-        the_last_me:  λ.curry(inq.getEntity, fb, "me")
+        the_first_me: λ.curry(getEntity, fb_versions[1], "me"),
+        the_last_me:  λ.curry(getEntity, fb, "me")
       }, function(err, r){
         if(err) return t.end(err);
 

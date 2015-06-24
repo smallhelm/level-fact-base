@@ -1,5 +1,6 @@
 var _ = require('lodash');
 var λ = require('contra');
+var assertFB = require('./utils/assertFB');
 var HashIndex = require('level-hash-index');
 var SchemaUtils = require('./schema-utils');
 var escapeRegExp = require('escape-regexp');
@@ -322,12 +323,6 @@ var SetOfBindings = function(fb, q_fact){
   };
 };
 
-var assertFB = function(fb){
-  if(!fb || !fb.hindex || !fb.db || !fb.schema || !fb.types){
-    throw new Error("Must pass fb as the first argument");
-  }
-};
-
 var qTuple = function(fb, tuple, orig_binding, callback){
   if(arguments.length === 3){
     callback = orig_binding;
@@ -417,28 +412,5 @@ var q = function(fb, tuples, bindings, callback){
 
 module.exports = {
   q: q,
-  qTuple: qTuple,
-  getEntity: function(fb, e, callback){
-    try{assertFB(fb);}catch(e){return callback(e);}
-
-    q(fb, [["?e", "?a", "?v"]], [{"?e": e}], function(err, results){
-      if(err) return callback(err);
-      if(results.length === 0){
-        return callback(null, null);
-      }
-      var o = {};
-      results.forEach(function(result){
-        var a = result["?a"];
-        if(isMultiValued(fb, a)){
-          if(!_.isArray(o[a])){
-            o[a] = [];
-          }
-          o[a].push(result["?v"]);
-        }else{
-          o[a] = result["?v"];
-        }
-      });
-      callback(null, o);
-    });
-  }
+  qTuple: qTuple
 };
