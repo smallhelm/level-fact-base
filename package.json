@@ -21,8 +21,10 @@
     "levelup",
     "leveldb",
     "datalog",
+    "datomic",
     "db",
-    "database"
+    "database",
+    "immutable"
   ],
   "author": "smallhelm",
   "license": "MIT",
