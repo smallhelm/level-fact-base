@@ -30,18 +30,18 @@ user10 : Set email to "new@email"
 
  - April 18 -
 You    : What is the user10's email address?
-dumb DB: "new@email"
+aDumbDB: "new@email"
 
 You    : What was user10's email on April 3?
-dumb DB: "new@email"
+aDumbDB: "new@email"
 ```
 What you really want is this:
 ```txt
 You     : What is the user10's email address?
-factBase: "new@email", true as of April 6 according to user10
+FactBase: "new@email", on April 6 it was set by user10
 
 You     : What was user10's email on April 3?
-factBase: "old@email", true from April 1 until April 6 according to user10
+FactBase: "old@email", on April 1 it was set by user10, but on April 6 it was unset by user10
 ```
 
 ### 3 - Easy to query with performant joins
@@ -62,8 +62,8 @@ WHERE
 ```
 Contrast that with the level-fact-base datalog equivalent
 ```js
-[['?id', 'user/id'     , 10     ],
- ['?id', 'comment/text', '?text']]
+[["?id", "user/id"     , 10     ],
+ ["?id", "comment/text", "?text"]]
 ```
 
 # Inspired by Datomic, but not Datomic
@@ -73,7 +73,106 @@ level-fact-base is not a re-implementation or a clone of Datomic. However, its i
 
 # API
 
-TODO
+The API is fairly stable. Once this project is a v1.x.x release it will follow semver so breaking API changes will be noted and expressed by incrementing the major version number.
+
+```js
+//the writer
+var Transactor = require("level-fact-base/transactor");
+
+//the connection
+var Connection = require("level-fact-base/connection");
+
+//query functions
+var q          = require("level-fact-base/q");
+var qTuple     = require("level-fact-base/qTuple");
+var getEntity  = require("level-fact-base/getEntity");
+```
+
+
+## Transactor(db[, options], onStartup)
+`db` is any thing that exposes a levelup api.
+`options.hindex` by default it's [level-hash-index](https://github.com/smallhelm/level-hash-index), but you can pass in your own thing that exposes that api.
+`onStartup(err, transactor)` is called once the transactor is warm and ready to go
+`transactor.connection` is an instance of the Connection object
+`transactor.transact` is the `transact` function
+
+### transact(fact\_tuples[, tx\_data], callback)
+This is the only function for making writes to level-fact-base. `tx_data` are attributes and values that will be expanded to the transaction tuples. This is useful for retaining information about the transaction itself.
+
+```js
+transact([["10", "user/email", "my@email"],
+          ["10", "user/name" , "bob"     ]],
+
+         {"performed/by": "10"},
+
+         function(err, fb){
+           //fb is the latest fb version
+         })
+```
+
+## Connection(db[, options], callback)
+`db` is any thing that exposes a levelup api.
+`options.hindex` by default it's [level-hash-index](https://github.com/smallhelm/level-hash-index), but you can pass in your own thing that exposes that api.
+`callback(err, connection)` is called once the connection is ready
+
+### fb = connection.snap()
+Get a snapshot of the database.
+
+### fb = connection.asOf(txn\_id, callback)
+Get the database at a particular transaction id
+`txn_id` the transaction number you wish to get a snapshot of
+`callback(err, fb)` the fb value at that `txn_id`
+
+## q(fb, tuples[, bindings], callback)
+The main entry point for performing datalog queries. As you'll notice it's just javascript arrays. Anything that starts with `"?"` is considered a variable. `"?_"` is the throw away variable (not bound to anything)
+
+```js
+q(fb, [["?id", "user/id"     , "?user_id"],
+       ["?id", "comment/text", "?text"   ]],
+
+      [{"?user_id": 10}],
+
+      function(err, r){
+
+        //r is [
+        //  {"?user_id": 10, "?id": 123, "?text": "some comment about the post..."},
+        //  {"?user_id": 10, "?id": 321, "?text": "annother comment"},
+        //  ...
+        //];
+
+      });
+```
+To help prevent injection attacks only use strings, numbers, and booleans inside the query. Don't put variables in the query, pass them in as bindings. This way they can be properly checked and escaped.
+
+## qTuple(fb, tuples[, binding], callback)
+`q` is built upon this function. It is called for every tuple in `q` and for each of `q`'s bindings.
+
+```js
+qTuple(fb, ["?id", "user/id", "?user_id"],
+
+           {"?user_id": 10},
+
+           function(err, r){
+
+             //r is [
+             //  {"?user_id": 10, "?id": 123},
+             //  {"?user_id": 10, "?id": 321},
+             //  ...
+             //];
+
+           });
+```
+
+## getEntity(fb, e, callback)
+A sugar function that simply gets all attributes and values for `e`.
+
+```js
+getEntity(fb, 10, function(err, user){
+
+  // user is {id: 10, name: "bob", email: "my@email"}
+
+});
+```
 
 # License
 

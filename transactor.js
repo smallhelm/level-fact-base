@@ -101,7 +101,7 @@ module.exports = function(db, options, onStartup){
   }
   options = options || {};
 
-  var hindex = HashIndex(db);
+  var hindex = options.hindex || HashIndex(db);
 
   Connection(db, {hindex: hindex}, function(err, conn){
     if(err) return onStartup(err);

@@ -64,6 +64,10 @@ var loadUserSchema = function(fb, callback){
 };
 
 module.exports = function(db, options, callback){
+  if(arguments.length === 2){
+    callback = options;
+    options = {};
+  }
   options = options || {};
 
   var hindex = options.hindex || HashIndex(db);
