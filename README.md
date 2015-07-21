@@ -90,11 +90,11 @@ var getEntity  = require("level-fact-base/getEntity");
 
 
 ## Transactor(db[, options], onStartup)
-`db` is any thing that exposes a levelup api.
-`options.hindex` by default it's [level-hash-index](https://github.com/smallhelm/level-hash-index), but you can pass in your own thing that exposes that api.
-`onStartup(err, transactor)` is called once the transactor is warm and ready to go
-`transactor.connection` is an instance of the Connection object
-`transactor.transact` is the `transact` function
+ * `db` is any thing that exposes a levelup api.
+ * `options.hindex` by default it's [level-hash-index](https://github.com/smallhelm/level-hash-index), but you can pass in your own thing that exposes that api.
+ * `onStartup(err, transactor)` is called once the transactor is warm and ready to go
+ * `transactor.connection` is an instance of the Connection object
+ * `transactor.transact` is the `transact` function
 
 ### transact(fact\_tuples[, tx\_data], callback)
 This is the only function for making writes to level-fact-base. `tx_data` are attributes and values that will be expanded to the transaction tuples. This is useful for retaining information about the transaction itself.
@@ -111,17 +111,17 @@ transact([["10", "user/email", "my@email"],
 ```
 
 ## Connection(db[, options], callback)
-`db` is any thing that exposes a levelup api.
-`options.hindex` by default it's [level-hash-index](https://github.com/smallhelm/level-hash-index), but you can pass in your own thing that exposes that api.
-`callback(err, connection)` is called once the connection is ready
+ * `db` is any thing that exposes a levelup api.
+ * `options.hindex` by default it's [level-hash-index](https://github.com/smallhelm/level-hash-index), but you can pass in your own thing that exposes that api.
+ * `callback(err, connection)` is called once the connection is ready
 
 ### fb = connection.snap()
 Get a snapshot of the database.
 
 ### fb = connection.asOf(txn\_id, callback)
 Get the database at a particular transaction id
-`txn_id` the transaction number you wish to get a snapshot of
-`callback(err, fb)` the fb value at that `txn_id`
+ * `txn_id` the transaction number you wish to get a snapshot of
+ * `callback(err, fb)` the fb value at that `txn_id`
 
 ## q(fb, tuples[, bindings], callback)
 The main entry point for performing datalog queries. As you'll notice it's just javascript arrays. Anything that starts with `"?"` is considered a variable. `"?_"` is the throw away variable (not bound to anything)
