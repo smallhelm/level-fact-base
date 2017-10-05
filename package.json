@@ -1,6 +1,6 @@
 {
   "name": "level-fact-base",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Store \"facts\" in level and query them via datalog",
   "main": "index.js",
   "files": [
