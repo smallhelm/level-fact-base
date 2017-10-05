@@ -1,4 +1,7 @@
 # level-fact-base
+
+[![Build Status](https://travis-ci.org/smallhelm/level-fact-base.svg?branch=master)](https://travis-ci.org/smallhelm/level-fact-base)
+
 Store "facts" in level and query them via datalog
 
 # Why "Facts"??
