@@ -89,7 +89,7 @@ module.exports = function(db, options, callback){
     var loadSchemaAsOf = function(txn, callback){
       loadUserSchema(makeFB(txn, base_schema), function(err, user_schema){
         if(err) return callback(err);
-        callback(null, _.assign({}, user_schema, base_schema));
+        callback(null, _.merge({}, user_schema, base_schema));
       });
     };
 
@@ -102,7 +102,7 @@ module.exports = function(db, options, callback){
         callback(null, {
           update: function(new_txn, schema_changes){
             latest_transaction_n = new_txn;
-            latest_schema = _.assign({}, latest_schema, schema_changes);
+            latest_schema = _.merge({}, latest_schema, schema_changes);
           },
           snap: function(){
             return makeFB(latest_transaction_n, latest_schema);
