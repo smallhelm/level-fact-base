@@ -4,9 +4,9 @@
 
 Store "facts" in level and query them via datalog
 
-# Why "Facts"??
+## Why "Facts"??
 
-## Anatomy of a fact
+### Anatomy of a fact
 A fact is something that happened.
 
  * `E` - ***Entity*** - an id that represents an entity i.e. `"user10"`
@@ -15,13 +15,13 @@ A fact is something that happened.
  * `T` - ***Time*** - when this fact became true
  * `O` - ***Assertion/Retraction*** - whether the fact was asserted or retracted
 
-## The power of facts
+### The power of facts
 Using a fact based information model inherently provide these 3 benefits.
 
-### 1 - Flexible data model
+#### 1 - Flexible data model
 Only storing facts makes adapting to changing requirements easy.
 
-### 2 - Built in, queryable history and auditing
+#### 2 - Built in, queryable history and auditing
 Most databases only remember the last thing that was true. For example
 
 ```txt
@@ -32,7 +32,7 @@ user10 : Set email to "old@email"
 user10 : Set email to "new@email"
 
  - April 18 -
-You    : What is the user10's email address?
+You    : What is user10's email address?
 aDumbDB: "new@email"
 
 You    : What was user10's email on April 3?
@@ -40,14 +40,14 @@ aDumbDB: "new@email"
 ```
 What you really want is this:
 ```txt
-You     : What is the user10's email address?
+You     : What is user10's email address?
 FactBase: "new@email", on April 6 it was set by user10
 
 You     : What was user10's email on April 3?
-FactBase: "old@email", on April 1 it was set by user10, but on April 6 it was unset by user10
+FactBase: "old@email", on April 1 it was set by user10, but on April 6 it was changed to "new@email" by user10
 ```
 
-### 3 - Easy to query with performant joins
+#### 3 - Easy to query with performant joins
 Joins are very powerful and can make your life easier. If your database doesn't provide them, then you need to do them by hand. The way they are commonly implemented in SQL style databases can cause performance headaches. They can also be a pain to write and understand.
 
 Using a fact based data model and datalog makes joins not only easy to express, but they are naturally performant.
@@ -69,12 +69,12 @@ Contrast that with the level-fact-base datalog equivalent
  ["?id", "comment/text", "?text"]]
 ```
 
-# Inspired by Datomic, but not Datomic
+## Inspired by Datomic, but not Datomic
 If you haven't heard about [Datomic](http://www.datomic.com/), go read about it now!
 
 level-fact-base is not a re-implementation or a clone of Datomic. However, its information model and use of datalog are inspired by Datomic.
 
-# API
+## API
 
 The API is fairly stable. Once this project is a v1.x.x release it will follow semver so breaking API changes will be noted and expressed by incrementing the major version number.
 
@@ -92,14 +92,14 @@ var getEntity  = require("level-fact-base/getEntity");
 ```
 
 
-## Transactor(db[, options], onStartup)
+### Transactor(db[, options], onStartup)
  * `db` is any thing that exposes a levelup api.
  * `options.hindex` by default it's [level-hash-index](https://github.com/smallhelm/level-hash-index), but you can pass in your own thing that exposes that api.
  * `onStartup(err, transactor)` is called once the transactor is warm and ready to go
  * `transactor.connection` is an instance of the Connection object
  * `transactor.transact` is the `transact` function
 
-### transact(fact\_tuples[, tx\_data], callback)
+#### transact(fact\_tuples[, tx\_data], callback)
 This is the only function for making writes to level-fact-base. `tx_data` are attributes and values that will be expanded to the transaction tuples. This is useful for retaining information about the transaction itself.
 
 ```js
@@ -113,20 +113,20 @@ transact([["10", "user/email", "my@email"],
          })
 ```
 
-## Connection(db[, options], callback)
+### Connection(db[, options], callback)
  * `db` is any thing that exposes a levelup api.
  * `options.hindex` by default it's [level-hash-index](https://github.com/smallhelm/level-hash-index), but you can pass in your own thing that exposes that api.
  * `callback(err, connection)` is called once the connection is ready
 
-### fb = connection.snap()
+#### fb = connection.snap()
 Get a snapshot of the database.
 
-### fb = connection.asOf(txn\_id, callback)
+#### fb = connection.asOf(txn\_id, callback)
 Get the database at a particular transaction id
  * `txn_id` the transaction number you wish to get a snapshot of
  * `callback(err, fb)` the fb value at that `txn_id`
 
-## q(fb, tuples[, bindings], callback)
+### q(fb, tuples[, bindings], callback)
 The main entry point for performing datalog queries. As you'll notice it's just javascript arrays. Anything that starts with `"?"` is considered a variable. `"?_"` is the throw away variable (not bound to anything)
 
 ```js
@@ -147,7 +147,7 @@ q(fb, [["?id", "user/id"     , "?user_id"],
 ```
 To help prevent injection attacks only use strings, numbers, and booleans inside the query. Don't put variables in the query, pass them in as bindings. This way they can be properly checked and escaped.
 
-## qTuple(fb, tuples[, binding], callback)
+### qTuple(fb, tuples[, binding], callback)
 `q` is built upon this function. It is called for every tuple in `q` and for each of `q`'s bindings.
 
 ```js
@@ -166,7 +166,7 @@ qTuple(fb, ["?id", "user/id", "?user_id"],
            });
 ```
 
-## getEntity(fb, e, callback)
+### getEntity(fb, e, callback)
 A sugar function that simply gets all attributes and values for `e`.
 
 ```js
@@ -177,26 +177,5 @@ getEntity(fb, 10, function(err, user){
 });
 ```
 
-# License
-
-The MIT License (MIT)
-
-Copyright (c) 2015 Small Helm LLC
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+## License
+MIT
