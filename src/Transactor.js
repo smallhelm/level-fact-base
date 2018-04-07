@@ -3,6 +3,7 @@ var cuid = require('cuid')
 var dbRange = require('./dbRange')
 var fastq = require('fastq')
 var promisify = require('./promisify')
+var schemaTypes = require('./schemaTypes')
 
 function mkFB (db, txn, schema) {
   var fb = Object.freeze({
@@ -13,6 +14,44 @@ function mkFB (db, txn, schema) {
   return fb
 }
 
+var systemSchema = Object.freeze({
+  '_s/attr': {
+    '_s/type': 'String'
+  },
+  '_s/type': {
+    '_s/type': 'String'
+  },
+  '_s/txn-time': {
+    '_s/type': 'Date'
+  }
+})
+
+function getSchemaFor (fb, attr) {
+  if (fb.schema.byAttr[attr]) {
+    return fb.schema.byAttr[attr]
+  }
+  if (systemSchema[attr]) {
+    return systemSchema[attr]
+  }
+}
+
+function assertSchema (fb, eId, attr, value) {
+  var sc = getSchemaFor(fb, attr)
+  if (!sc) {
+    throw new Error('Attribute `' + attr + '` schema not found')
+  }
+  var type = sc['_s/type']
+  if (!type) {
+    throw new Error('Attribute `' + attr + '` is missing `_s/type`')
+  }
+  if (!schemaTypes[type]) {
+    throw new Error('Attribute `' + attr + '`\'s `_s/type` "' + type + '" is not supported')
+  }
+  if (!schemaTypes[type].validate(value)) {
+    throw new TypeError('Expected a ' + type + ' for attribute `' + attr + '`')
+  }
+}
+
 function transact (db, fb, entities, callback) {
   var txn = fb.txn + 1
 
@@ -21,8 +60,7 @@ function transact (db, fb, entities, callback) {
   var facts = []
   entities.forEach(function (entity) {
     if (typeof entity !== 'object' || !entity.hasOwnProperty('$e') || typeof entity.$e !== 'string') {
-      callback(new Error('Fact tuple missing `$e`'))
-      return
+      throw new Error('Fact tuple missing `$e`')
     }
     Object.keys(entity).forEach(function (attr) {
       if (attr === '$e') return
@@ -34,7 +72,7 @@ function transact (db, fb, entities, callback) {
 
       var value = entity[attr]
 
-      // TODO validate with schema
+      assertSchema(fb, entity.$e, attr, value)
 
       facts.push({
         e: entity.$e,
@@ -91,15 +129,6 @@ function transact (db, fb, entities, callback) {
   })
 }
 
-var systemSchema = Object.freeze({
-  '_s/type': {
-    '_s/type': 'String'
-  },
-  '_s/txn-time': {
-    '_s/type': 'Date'
-  }
-})
-
 function parseFact (dbKey) {
   var fact = {}
   dbKey[0].split('').forEach(function (key, i) {
@@ -153,12 +182,19 @@ function getSchemaAsOf (db, txn, callback) {
     λ.each(attrIds, function (id, next) {
       getEntity(db, txn, id, function (err, entity) {
         if (err) return next(err)
+
         entity.$e = id
+        Object.freeze(entity)
+
         schema.byId[id] = entity
         schema.byAttr[entity['_s/attr']] = entity
+
         next()
       })
     }, function (err) {
+      Object.freeze(schema.byId)
+      Object.freeze(schema.byAttr)
+      Object.freeze(schema)
       callback(err, schema)
     })
   })
@@ -188,13 +224,17 @@ module.exports = function Transactor (conf) {
   var currFB
 
   var transactQ = fastq(function (entities, callback) {
-    transact(db, currFB, entities, function (err, fb) {
-      if (err) return callback(err)
-      if (fb) {
-        currFB = fb
-      }
-      callback(null, currFB)
-    })
+    try {
+      transact(db, currFB, entities, function (err, fb) {
+        if (err) return callback(err)
+        if (fb) {
+          currFB = fb
+        }
+        callback(null, currFB)
+      })
+    } catch (err) {
+      callback(err)
+    }
   })
 
   function syncSchema (callback) {
@@ -227,10 +267,10 @@ module.exports = function Transactor (conf) {
         $e: (currSchema[attr] && currSchema[attr].$e) || nextId(),
         '_s/attr': attr
       }
-      var foundDiff = false
+      var foundDiff = !currSchema[attr]
       Object.keys(goalSchema[attr]).forEach(function (prop) {
-        if (attr === '_s/attr') return
-        if (attr === '$e') return
+        if (prop === '_s/attr') return
+        if (prop === '$e') return
         var goalV = goalSchema[attr][prop]
         var currV = currSchema[attr] && currSchema[attr][prop]
         if (goalV !== currV) {

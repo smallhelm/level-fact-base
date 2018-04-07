@@ -37,37 +37,54 @@ async function dbDump (fb, keepSchema) {
 }
 
 test('Transactor', async function (t) {
-  var db = mkDB()
-  var tr = Transactor({db: db, nextId: mkNextId()})
-  var fb = await tr.snap()
+  var tConf = {
+    db: mkDB(),
+    nextId: mkNextId()
+  }
+  var tr0 = Transactor(tConf)
+  var fb = await tr0.snap()
   t.is(fb.txn, 1, 'schema transacted')
   t.is(await dbDump(fb, true), `
-aveto|_s/attr|_s/txn-time|id2|1|true
-aveto|_s/attr|_s/type|id1|1|true
-aveto|_s/type|Date|id2|1|true
+aveto|_s/attr|_s/attr|id1|1|true
+aveto|_s/attr|_s/txn-time|id3|1|true
+aveto|_s/attr|_s/type|id2|1|true
+aveto|_s/type|Date|id3|1|true
 aveto|_s/type|String|id1|1|true
-eavto|id1|_s/attr|_s/type|1|true
+aveto|_s/type|String|id2|1|true
+eavto|id1|_s/attr|_s/attr|1|true
 eavto|id1|_s/type|String|1|true
-eavto|id2|_s/attr|_s/txn-time|1|true
-eavto|id2|_s/type|Date|1|true
-teavo|1|id1|_s/attr|_s/type|true
+eavto|id2|_s/attr|_s/type|1|true
+eavto|id2|_s/type|String|1|true
+eavto|id3|_s/attr|_s/txn-time|1|true
+eavto|id3|_s/type|Date|1|true
+teavo|1|id1|_s/attr|_s/attr|true
 teavo|1|id1|_s/type|String|true
-teavo|1|id2|_s/attr|_s/txn-time|true
-teavo|1|id2|_s/type|Date|true
-vaeto|Date|_s/type|id2|1|true
+teavo|1|id2|_s/attr|_s/type|true
+teavo|1|id2|_s/type|String|true
+teavo|1|id3|_s/attr|_s/txn-time|true
+teavo|1|id3|_s/type|Date|true
+vaeto|Date|_s/type|id3|1|true
 vaeto|String|_s/type|id1|1|true
-vaeto|_s/txn-time|_s/attr|id2|1|true
-vaeto|_s/type|_s/attr|id1|1|true
+vaeto|String|_s/type|id2|1|true
+vaeto|_s/attr|_s/attr|id1|1|true
+vaeto|_s/txn-time|_s/attr|id3|1|true
+vaeto|_s/type|_s/attr|id2|1|true
   `.trim())
-
-  var error = await t.throws(tr.transact([{name: 'bob'}]))
+  var error = await t.throws(tr0.transact([{name: 'bob'}]))
   t.is(error + '', 'Error: Fact tuple missing `$e`')
 
-  fb = await tr.transact([])
-  fb = await tr.transact([{$e: 'A0'}])
+  fb = await tr0.transact([])
+  fb = await tr0.transact([{$e: 'A0'}])
   t.is(fb.txn, 1, 'nothing actually transacted')
 
-  fb = await tr.transact([
+  tConf.schema = {
+    name: {type: 'String'},
+    email: {type: 'String'},
+    foo: {type: 'String'}
+  }
+  var tr1 = Transactor(tConf)
+
+  fb = await tr1.transact([
     {
       $e: 'AA',
       name: 'bob',
@@ -78,66 +95,69 @@ vaeto|_s/type|_s/attr|id1|1|true
       foo: 'bar'
     }
   ])
-  t.is(fb.txn, 2, 'txn 2 finished')
+  t.is(fb.txn, 3, 'txn 3 finished')
 
-  fb = await tr.transact([{
+  fb = await tr1.transact([{
     $e: 'BB',
     foo: 'baz'
   }])
-  t.is(fb.txn, 3, 'txn 3 finished')
+  t.is(fb.txn, 4, 'txn 4 finished')
 
   t.is(await dbDump(fb), `
-aveto|email|some@email|AA|2|true
-aveto|foo|bar|BB|2|true
-aveto|foo|baz|BB|3|true
-aveto|name|bob|AA|2|true
-eavto|AA|email|some@email|2|true
-eavto|AA|name|bob|2|true
-eavto|BB|foo|bar|2|true
-eavto|BB|foo|baz|3|true
-teavo|2|AA|email|some@email|true
-teavo|2|AA|name|bob|true
-teavo|2|BB|foo|bar|true
-teavo|3|BB|foo|baz|true
-vaeto|bar|foo|BB|2|true
-vaeto|baz|foo|BB|3|true
-vaeto|bob|name|AA|2|true
-vaeto|some@email|email|AA|2|true
+aveto|email|some@email|AA|3|true
+aveto|foo|bar|BB|3|true
+aveto|foo|baz|BB|4|true
+aveto|name|bob|AA|3|true
+eavto|AA|email|some@email|3|true
+eavto|AA|name|bob|3|true
+eavto|BB|foo|bar|3|true
+eavto|BB|foo|baz|4|true
+teavo|3|AA|email|some@email|true
+teavo|3|AA|name|bob|true
+teavo|3|BB|foo|bar|true
+teavo|4|BB|foo|baz|true
+vaeto|bar|foo|BB|3|true
+vaeto|baz|foo|BB|4|true
+vaeto|bob|name|AA|3|true
+vaeto|some@email|email|AA|3|true
   `.trim())
 
-  // Try a cold start
-  var tr2 = Transactor({db: db, nextId: mkNextId()})
+  // Try a cold start with the same schema
+  var tr2 = Transactor(tConf)
   fb = await tr2.snap()
-  t.is(fb.txn, 3, 'loaded the txn')
+  t.is(fb.txn, 4, 'loaded the txn')
 })
 
-test('Schema', async function (t) {
+test('Schema setup', async function (t) {
   var db = mkDB()
   var nextId = mkNextId()
   var tr = Transactor({
     db: db,
     schema: {
-      username: {
-        type: 'String'
-      }
+      username: {type: 'String'}
     },
     nextId: nextId
   })
 
   var fb = await tr.snap()
   t.deepEqual(fb.schema.byAttr, {
-    '_s/type': {
+    '_s/attr': {
       $e: 'id1',
+      '_s/attr': '_s/attr',
+      '_s/type': 'String'
+    },
+    '_s/type': {
+      $e: 'id2',
       '_s/attr': '_s/type',
       '_s/type': 'String'
     },
     '_s/txn-time': {
-      $e: 'id2',
+      $e: 'id3',
       '_s/attr': '_s/txn-time',
       '_s/type': 'Date'
     },
     'username': {
-      $e: 'id3',
+      $e: 'id4',
       '_s/attr': 'username',
       '_s/type': 'String'
     }
@@ -150,8 +170,32 @@ test('Schema', async function (t) {
   }])
 
   t.deepEqual(fb.schema.byAttr.email, {
-    $e: 'id4',
+    $e: 'id5',
     '_s/attr': 'email',
     '_s/type': 'String'
   })
+})
+
+test('Schema type assertions', async function (t) {
+  var nextId = mkNextId()
+  var tr = Transactor({
+    db: mkDB(),
+    nextId: nextId,
+    schema: {
+      name: {type: 'String'},
+      incomplete: {},
+      unsupported: {type: 'Foo'}
+    }
+  })
+
+  async function tError (entity, expectedMsg) {
+    entity.$e = nextId()
+    var error = await t.throws(tr.transact([entity]))
+    t.is(error + '', expectedMsg)
+  }
+
+  await tError({watda: '?'}, 'Error: Attribute `watda` schema not found')
+  await tError({incomplete: '?'}, 'Error: Attribute `incomplete` is missing `_s/type`')
+  await tError({unsupported: '?'}, 'Error: Attribute `unsupported`\'s `_s/type` "Foo" is not supported')
+  await tError({name: 123}, 'TypeError: Expected a String for attribute `name`')
 })
