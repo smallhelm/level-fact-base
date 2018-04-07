@@ -59,9 +59,13 @@ function transact (db, fb, entities, callback) {
 
   var facts = []
   entities.forEach(function (entity) {
-    if (typeof entity !== 'object' || !entity.hasOwnProperty('$e') || typeof entity.$e !== 'string') {
+    if (typeof entity !== 'object' || !entity.hasOwnProperty('$e')) {
       throw new Error('Fact tuple missing `$e`')
     }
+    if (!schemaTypes.EntityID.validate(entity.$e)) {
+      throw new TypeError('EntityID `$e` should be a String')
+    }
+
     Object.keys(entity).forEach(function (attr) {
       if (attr === '$e') return
       if (attr === '$retract') return
@@ -318,6 +322,17 @@ module.exports = function Transactor (conf) {
     snap: function (callback) {
       callback = callback || promisify()
       onLoad(callback)
+      return callback.promise
+    },
+    asOf: function (txn, callback) {
+      callback = callback || promisify()
+      onLoad(function (err) {
+        if (err) return callback(err)
+        getSchemaAsOf(db, txn, function (err, schema) {
+          if (err) return callback(err)
+          callback(null, mkFB(db, txn, schema))
+        })
+      })
       return callback.promise
     },
     transact: function (entities, callback) {

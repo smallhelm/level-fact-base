@@ -73,6 +73,9 @@ vaeto|_s/type|_s/attr|id2|1|true
   var error = await t.throws(tr0.transact([{name: 'bob'}]))
   t.is(error + '', 'Error: Fact tuple missing `$e`')
 
+  error = await t.throws(tr0.transact([{$e: 123, name: 'bob'}]))
+  t.is(error + '', 'TypeError: EntityID `$e` should be a String')
+
   fb = await tr0.transact([])
   fb = await tr0.transact([{$e: 'A0'}])
   t.is(fb.txn, 1, 'nothing actually transacted')
@@ -126,6 +129,9 @@ vaeto|some@email|email|AA|3|true
   var tr2 = Transactor(tConf)
   fb = await tr2.snap()
   t.is(fb.txn, 4, 'loaded the txn')
+
+  fb = await tr2.asOf(2)
+  t.is(fb.txn, 2, 'back in time')
 })
 
 test('Schema setup', async function (t) {
@@ -174,6 +180,11 @@ test('Schema setup', async function (t) {
     '_s/attr': 'email',
     '_s/type': 'String'
   })
+
+  t.is(Object.keys(fb.schema.byAttr).join(','), '_s/attr,_s/txn-time,_s/type,email,username')
+  fb = await tr.asOf(1)
+  t.is(fb.txn, 1)
+  t.is(Object.keys(fb.schema.byAttr).join(','), '_s/attr,_s/txn-time,_s/type,username')
 })
 
 test('Schema type assertions', async function (t) {
