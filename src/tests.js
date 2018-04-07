@@ -13,6 +13,14 @@ function mkDB () {
   }))
 }
 
+var mkNextId = function () {
+  var currId = 0
+  return function () {
+    currId++
+    return 'id' + currId
+  }
+}
+
 async function dbDump (fb, keepSchema) {
   var dbStr = ''
   await dbRange(fb.db, {
@@ -30,28 +38,27 @@ async function dbDump (fb, keepSchema) {
 
 test('Transactor', async function (t) {
   var db = mkDB()
-  var tr = Transactor(db)
-  var fb
-  fb = await tr.snap()
+  var tr = Transactor({db: db, nextId: mkNextId()})
+  var fb = await tr.snap()
   t.is(fb.txn, 1, 'schema transacted')
   t.is(await dbDump(fb, true), `
-aveto|_s/attr|_s/txn-time|_s/txn-time|1|true
-aveto|_s/attr|_s/type|_s/type|1|true
-aveto|_s/type|Date|_s/txn-time|1|true
-aveto|_s/type|String|_s/type|1|true
-eavto|_s/txn-time|_s/attr|_s/txn-time|1|true
-eavto|_s/txn-time|_s/type|Date|1|true
-eavto|_s/type|_s/attr|_s/type|1|true
-eavto|_s/type|_s/type|String|1|true
-teavo|1|_s/txn-time|_s/attr|_s/txn-time|true
-teavo|1|_s/txn-time|_s/type|Date|true
-teavo|1|_s/type|_s/attr|_s/type|true
-teavo|1|_s/type|_s/type|String|true
-vaeto|Date|_s/type|_s/txn-time|1|true
-vaeto|String|_s/type|_s/type|1|true
-vaeto|_s/txn-time|_s/attr|_s/txn-time|1|true
-vaeto|_s/type|_s/attr|_s/type|1|true
-`.trim())
+aveto|_s/attr|_s/txn-time|id2|1|true
+aveto|_s/attr|_s/type|id1|1|true
+aveto|_s/type|Date|id2|1|true
+aveto|_s/type|String|id1|1|true
+eavto|id1|_s/attr|_s/type|1|true
+eavto|id1|_s/type|String|1|true
+eavto|id2|_s/attr|_s/txn-time|1|true
+eavto|id2|_s/type|Date|1|true
+teavo|1|id1|_s/attr|_s/type|true
+teavo|1|id1|_s/type|String|true
+teavo|1|id2|_s/attr|_s/txn-time|true
+teavo|1|id2|_s/type|Date|true
+vaeto|Date|_s/type|id2|1|true
+vaeto|String|_s/type|id1|1|true
+vaeto|_s/txn-time|_s/attr|id2|1|true
+vaeto|_s/type|_s/attr|id1|1|true
+  `.trim())
 
   var error = await t.throws(tr.transact([{name: 'bob'}]))
   t.is(error + '', 'Error: Fact tuple missing `$e`')
@@ -99,7 +106,52 @@ vaeto|some@email|email|AA|2|true
   `.trim())
 
   // Try a cold start
-  var tr2 = Transactor(db)
+  var tr2 = Transactor({db: db, nextId: mkNextId()})
   fb = await tr2.snap()
   t.is(fb.txn, 3, 'loaded the txn')
+})
+
+test('Schema', async function (t) {
+  var db = mkDB()
+  var nextId = mkNextId()
+  var tr = Transactor({
+    db: db,
+    schema: {
+      username: {
+        type: 'String'
+      }
+    },
+    nextId: nextId
+  })
+
+  var fb = await tr.snap()
+  t.deepEqual(fb.schema.byAttr, {
+    '_s/type': {
+      $e: 'id1',
+      '_s/attr': '_s/type',
+      '_s/type': 'String'
+    },
+    '_s/txn-time': {
+      $e: 'id2',
+      '_s/attr': '_s/txn-time',
+      '_s/type': 'Date'
+    },
+    'username': {
+      $e: 'id3',
+      '_s/attr': 'username',
+      '_s/type': 'String'
+    }
+  })
+
+  fb = await tr.transact([{
+    $e: nextId(),
+    '_s/attr': 'email',
+    '_s/type': 'String'
+  }])
+
+  t.deepEqual(fb.schema.byAttr.email, {
+    $e: 'id4',
+    '_s/attr': 'email',
+    '_s/type': 'String'
+  })
 })

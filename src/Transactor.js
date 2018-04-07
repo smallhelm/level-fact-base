@@ -13,8 +13,10 @@ function mkFB (db, txn, schema) {
   return fb
 }
 
-function transact (db, txn, entities, callback) {
-  var schema = {}// TODO
+function transact (db, fb, entities, callback) {
+  var txn = fb.txn + 1
+
+  var schemaChanged = false
 
   var facts = []
   entities.forEach(function (entity) {
@@ -25,6 +27,10 @@ function transact (db, txn, entities, callback) {
     Object.keys(entity).forEach(function (attr) {
       if (attr === '$e') return
       if (attr === '$retract') return
+
+      if (attr === '_s/attr' || fb.schema.byId[entity.$e]) {
+        schemaChanged = true
+      }
 
       var value = entity[attr]
 
@@ -73,18 +79,26 @@ function transact (db, txn, entities, callback) {
 
   db.batch(dbOps, function (err) {
     if (err) return callback(err)
-    callback(null, mkFB(db, txn, schema))
+
+    if (schemaChanged) {
+      getSchemaAsOf(db, txn, function (err, schema) {
+        if (err) return callback(err)
+        callback(null, mkFB(db, txn, schema))
+      })
+    } else {
+      callback(null, mkFB(db, txn, fb.schema))
+    }
   })
 }
 
-var systemSchema = {
+var systemSchema = Object.freeze({
   '_s/type': {
     '_s/type': 'String'
   },
   '_s/txn-time': {
     '_s/type': 'Date'
   }
-}
+})
 
 function parseFact (dbKey) {
   var fact = {}
@@ -120,7 +134,7 @@ function getEntity (db, txn, id, callback) {
   })
 }
 
-function loadSchemaAsOf (db, txn, callback) {
+function getSchemaAsOf (db, txn, callback) {
   var attrIds = []
   dbRange(db, {
     prefix: ['aveto', '_s/attr']
@@ -132,11 +146,16 @@ function loadSchemaAsOf (db, txn, callback) {
   }, function (err) {
     if (err) return callback(err)
 
-    var schema = {}
+    var schema = {
+      byId: {},
+      byAttr: {}
+    }
     λ.each(attrIds, function (id, next) {
       getEntity(db, txn, id, function (err, entity) {
         if (err) return next(err)
-        schema[id] = entity
+        entity.$e = id
+        schema.byId[id] = entity
+        schema.byAttr[entity['_s/attr']] = entity
         next()
       })
     }, function (err) {
@@ -154,19 +173,22 @@ function loadCurrFB (db, callback) {
         return callback(err)
       }
     }
-    loadSchemaAsOf(db, txn, function (err, schema) {
+    getSchemaAsOf(db, txn, function (err, schema) {
       if (err) return callback(err)
       callback(null, mkFB(db, txn, schema))
     })
   })
 }
 
-module.exports = function Transactor (db) {
+module.exports = function Transactor (conf) {
+  var db = conf.db
+  var initSchema = conf.schema
+  var nextId = conf.nextId || cuid
+
   var currFB
 
   var transactQ = fastq(function (entities, callback) {
-    var txn = currFB.txn + 1
-    transact(db, txn, entities, function (err, fb) {
+    transact(db, currFB, entities, function (err, fb) {
       if (err) return callback(err)
       if (fb) {
         currFB = fb
@@ -176,8 +198,17 @@ module.exports = function Transactor (db) {
   })
 
   function syncSchema (callback) {
-    var currSchema = currFB.schema
-    var goalSchema = systemSchema
+    var currSchema = currFB.schema.byAttr
+    var goalSchema = Object.assign({}, systemSchema)
+
+    if (initSchema) {
+      Object.keys(initSchema).forEach(function (k) {
+        goalSchema[k] = {}
+        Object.keys(initSchema[k]).forEach(function (prop) {
+          goalSchema[k]['_s/' + prop] = initSchema[k][prop]
+        })
+      })
+    }
 
     var toTransact = []
 
@@ -191,18 +222,19 @@ module.exports = function Transactor (db) {
       }
     })
 
-    Object.keys(goalSchema).forEach(function (attrId) {
+    Object.keys(goalSchema).forEach(function (attr) {
       var entity = {
-        $e: attrId,
-        '_s/attr': attrId
+        $e: (currSchema[attr] && currSchema[attr].$e) || nextId(),
+        '_s/attr': attr
       }
       var foundDiff = false
-      Object.keys(goalSchema[attrId]).forEach(function (attr) {
+      Object.keys(goalSchema[attr]).forEach(function (prop) {
         if (attr === '_s/attr') return
-        var goalV = goalSchema[attrId][attr]
-        var currV = currSchema[attrId] && currSchema[attrId][attr]
+        if (attr === '$e') return
+        var goalV = goalSchema[attr][prop]
+        var currV = currSchema[attr] && currSchema[attr][prop]
         if (goalV !== currV) {
-          entity[attr] = goalSchema[attrId][attr]
+          entity[prop] = goalSchema[attr][prop]
           foundDiff = true
         }
       })
