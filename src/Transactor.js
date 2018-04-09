@@ -4,12 +4,16 @@ var dbRange = require('./dbRange')
 var fastq = require('fastq')
 var promisify = require('./promisify')
 var schemaTypes = require('./schemaTypes')
+var q = require('./q')
+var get = require('./get')
 
 function mkFB (db, txn, schema) {
   var fb = Object.freeze({
     db: db,
     txn: txn,
-    schema: schema
+    schema: schema,
+    q: q,
+    get: get
   })
   return fb
 }

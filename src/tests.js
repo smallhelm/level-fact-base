@@ -3,7 +3,6 @@ var dbRange = require('./dbRange')
 var encode = require('encoding-down')
 var levelup = require('levelup')
 var memdown = require('memdown')
-var q = require('./q')
 var test = require('ava')
 var Transactor = require('./Transactor')
 
@@ -212,7 +211,7 @@ test('Schema type assertions', async function (t) {
   await tError({name: 123}, 'TypeError: Expected a String for attribute `name`')
 })
 
-test('qTuple', async function (t) {
+test('q', async function (t) {
   var tr = Transactor({
     db: mkDB(),
     nextId: mkNextId(),
@@ -231,7 +230,7 @@ test('qTuple', async function (t) {
     {$e: 'janet', father: 'tag', mother: 'pat'}
   ])
 
-  var data = await q(fb, [['?id', 'father', '?dad']], {})
+  var data = await fb.q([['?id', 'father', '?dad']])
   t.deepEqual(data, [
     {id: 'mike', dad: 'big mike'},
     {id: 'rusty', dad: 'big mike'},
@@ -242,7 +241,7 @@ test('qTuple', async function (t) {
     {id: 'janet', dad: 'tag'}
   ])
 
-  data = await q(fb, [['?id', 'father', '?dad']], {
+  data = await fb.q([['?id', 'father', '?dad']], {
     dad: 'mike'
   })
   t.deepEqual(data, [
@@ -251,7 +250,7 @@ test('qTuple', async function (t) {
     {id: 'sue', dad: 'mike'}
   ])
 
-  data = await q(fb, [['?id', 'father', '?dad']], {
+  data = await fb.q([['?id', 'father', '?dad']], {
     dad: 'mike'
   }, ['id'])
   t.deepEqual(data, [
@@ -260,7 +259,7 @@ test('qTuple', async function (t) {
     {id: 'sue'}
   ])
 
-  data = await q(fb, [
+  data = await fb.q([
     ['?child', 'father', '?husband'],
     ['?child', 'mother', '?wife']
   ], {}, ['husband', 'wife'])
@@ -268,4 +267,45 @@ test('qTuple', async function (t) {
     {husband: 'mike', wife: 'frankie'},
     {husband: 'tag', wife: 'pat'}
   ])
+})
+
+test('get', async function (t) {
+  var tr = Transactor({
+    db: mkDB(),
+    nextId: mkNextId(),
+    schema: {
+      name: {type: 'String'},
+      email: {type: 'String'}
+    }
+  })
+  var fb = await tr.transact([
+    {$e: 'aaa', name: 'jim', email: 'a@a.a'},
+    {$e: 'bbb', email: 'b@b.b'}
+  ])
+
+  t.deepEqual(await fb.get('aaa'), {
+    $e: 'aaa',
+    name: 'jim',
+    email: 'a@a.a'
+  })
+
+  t.deepEqual(await fb.get('bbb'), {
+    $e: 'bbb',
+    email: 'b@b.b'
+  })
+
+  var fbNew = await tr.transact([
+    {$e: 'aaa', name: 'a name change'}
+  ])
+
+  t.deepEqual(await fb.get('aaa'), {
+    $e: 'aaa',
+    name: 'jim',
+    email: 'a@a.a'
+  })
+  t.deepEqual(await fbNew.get('aaa'), {
+    $e: 'aaa',
+    name: 'a name change',
+    email: 'a@a.a'
+  })
 })

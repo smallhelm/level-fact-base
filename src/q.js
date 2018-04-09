@@ -2,6 +2,7 @@ var _ = require('lodash')
 var λ = require('contra')
 var dbRange = require('./dbRange')
 var promisify = require('./promisify')
+var isFB = require('./isFB')
 
 function escapeVar (elm) {
   return typeof elm === 'string'
@@ -93,22 +94,49 @@ function qTuple (fb, tupleOrig, binding, callback) {
     }
   }
 
-  var results = []
+  var iE = index.indexOf('e') + 1
+  var iA = index.indexOf('a') + 1
+  var iT = index.indexOf('t') + 1
+
+  var latestResults = {}
 
   dbRange(fb.db, {
     prefix: prefix
   }, function (data) {
-    result = {}
+    var $t = data.key[iT]
+    if ($t > fb.txn) {
+      return
+    }
+    var resultKey = data.key[iE] + '|' + data.key[iA]
+    if (latestResults[resultKey] && $t < latestResults[resultKey].t) {
+      return
+    }
+
+    var result = {}
     Object.keys(toBind).forEach(function (i) {
       result[toBind[i]] = data.key[i]
     })
-    results.push(Object.assign({}, binding, result))
+
+    latestResults[resultKey] = {t: $t, d: result}
   }, function (err) {
-    callback(err, results)
+    if (err) return callback(err)
+
+    var results = Object.keys(latestResults).map(function (key) {
+      return Object.assign({}, latestResults[key].d, binding)
+    })
+    callback(null, results)
   })
 }
 
 module.exports = function q (fb, tuples, binding, questions, callback) {
+  if (isFB(this)) {
+    callback = questions
+    questions = binding
+    binding = tuples
+    tuples = fb
+    fb = this
+  }
+
   binding = binding || {}
   callback = callback || promisify()
 

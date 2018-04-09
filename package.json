@@ -2,19 +2,9 @@
   "name": "level-fact-base",
   "version": "0.1.1",
   "description": "Store \"facts\" in level and query them via datalog",
-  "main": "index.js",
+  "main": "src/index.js",
   "files": [
-    "any-value-async-q.js",
-    "connection.js",
-    "constants.js",
-    "getEntity.js",
-    "index.js",
-    "q.js",
-    "qTuple.js",
-    "schema-utils.js",
-    "transactor.js",
-    "utils/assertFB.js",
-    "utils/toPaddedBase36.js"
+    "src"
   ],
   "keywords": [
     "level",
@@ -39,6 +29,7 @@
     "test": "ava src/tests.js"
   },
   "dependencies": {
+    "contra": "1.8.1",
     "cuid": "^2.1.1",
     "fastq": "^1.5.0",
     "lodash": "^4.17.5"
@@ -46,14 +37,8 @@
   "devDependencies": {
     "ava": "^0.25.0",
     "charwise": "^3.0.1",
-    "contra": "1.8.1",
     "encoding-down": "^4.0.0",
-    "escape-regexp": "0.0.1",
-    "gent": "^0.6.2",
-    "level-errors": "^1.1.2",
-    "level-hash-index": "0.1.1",
     "levelup": "^2.0.2",
-    "memdown": "^2.0.0",
-    "tape": "^4.0.0"
+    "memdown": "^2.0.0"
   }
 }
