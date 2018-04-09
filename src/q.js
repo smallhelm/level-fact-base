@@ -128,10 +128,10 @@ function qTuple (fb, tupleOrig, binding, callback) {
   })
 }
 
-module.exports = function q (fb, tuples, binding, questions, callback) {
+module.exports = function q (fb, tuples, binding, select, callback) {
   if (isFB(this)) {
-    callback = questions
-    questions = binding
+    callback = select
+    select = binding
     binding = tuples
     tuples = fb
     fb = this
@@ -158,10 +158,10 @@ module.exports = function q (fb, tuples, binding, questions, callback) {
   }, function (err) {
     if (err) return callback(err)
 
-    if (questions && questions.length > 0) {
+    if (select && select.length > 0) {
       memo = _.map(memo, function (binding) {
         var r = {}
-        _.each(questions, function (key) {
+        _.each(select, function (key) {
           r[key] = binding[key]
         })
         return r

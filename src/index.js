@@ -224,10 +224,8 @@ function loadCurrFB (db, callback) {
   })
 }
 
-module.exports = function Transactor (conf) {
-  var db = conf.db
-  var initSchema = conf.schema
-  var nextId = conf.nextId || cuid
+module.exports = function Transactor (db, initSchema, nextId) {
+  nextId = nextId || cuid
 
   var currFB
 

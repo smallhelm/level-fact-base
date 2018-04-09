@@ -4,7 +4,7 @@ var encode = require('encoding-down')
 var levelup = require('levelup')
 var memdown = require('memdown')
 var test = require('ava')
-var Transactor = require('./Transactor')
+var Transactor = require('./')
 
 function mkDB () {
   return levelup(encode(memdown(), {
@@ -37,11 +37,10 @@ async function dbDump (fb, keepSchema) {
 }
 
 test('Transactor', async function (t) {
-  var tConf = {
-    db: mkDB(),
-    nextId: mkNextId()
-  }
-  var tr0 = Transactor(tConf)
+  var db = mkDB()
+  var nextId = mkNextId()
+  var schema = {}
+  var tr0 = Transactor(db, schema, nextId)
   var fb = await tr0.snap()
   t.is(fb.txn, 1, 'schema transacted')
   t.is(await dbDump(fb, true), `
@@ -80,12 +79,12 @@ vaeto|_s/type|_s/attr|id2|1|true
   fb = await tr0.transact([{$e: 'A0'}])
   t.is(fb.txn, 1, 'nothing actually transacted')
 
-  tConf.schema = {
+  schema = {
     name: {type: 'String'},
     email: {type: 'String'},
     foo: {type: 'String'}
   }
-  var tr1 = Transactor(tConf)
+  var tr1 = Transactor(db, schema, nextId)
 
   fb = await tr1.transact([
     {
@@ -126,7 +125,7 @@ vaeto|some@email|email|AA|3|true
   `.trim())
 
   // Try a cold start with the same schema
-  var tr2 = Transactor(tConf)
+  var tr2 = Transactor(db, schema, nextId)
   fb = await tr2.snap()
   t.is(fb.txn, 4, 'loaded the txn')
 
@@ -135,15 +134,10 @@ vaeto|some@email|email|AA|3|true
 })
 
 test('Schema setup', async function (t) {
-  var db = mkDB()
   var nextId = mkNextId()
-  var tr = Transactor({
-    db: db,
-    schema: {
-      username: {type: 'String'}
-    },
-    nextId: nextId
-  })
+  var tr = Transactor(mkDB(), {
+    username: {type: 'String'}
+  }, nextId)
 
   var fb = await tr.snap()
   t.deepEqual(fb.schema.byAttr, {
@@ -189,15 +183,11 @@ test('Schema setup', async function (t) {
 
 test('Schema type assertions', async function (t) {
   var nextId = mkNextId()
-  var tr = Transactor({
-    db: mkDB(),
-    nextId: nextId,
-    schema: {
-      name: {type: 'String'},
-      incomplete: {},
-      unsupported: {type: 'Foo'}
-    }
-  })
+  var tr = Transactor(mkDB(), {
+    name: {type: 'String'},
+    incomplete: {},
+    unsupported: {type: 'Foo'}
+  }, nextId)
 
   async function tError (entity, expectedMsg) {
     entity.$e = nextId()
@@ -212,14 +202,11 @@ test('Schema type assertions', async function (t) {
 })
 
 test('q', async function (t) {
-  var tr = Transactor({
-    db: mkDB(),
-    nextId: mkNextId(),
-    schema: {
-      father: {type: 'String'},
-      mother: {type: 'String'}
-    }
-  })
+  var tr = Transactor(mkDB(), {
+    father: {type: 'String'},
+    mother: {type: 'String'}
+  }, mkNextId())
+
   var fb = await tr.transact([
     {$e: 'axl', father: 'mike', mother: 'frankie'},
     {$e: 'sue', father: 'mike', mother: 'frankie'},
@@ -270,14 +257,11 @@ test('q', async function (t) {
 })
 
 test('get', async function (t) {
-  var tr = Transactor({
-    db: mkDB(),
-    nextId: mkNextId(),
-    schema: {
-      name: {type: 'String'},
-      email: {type: 'String'}
-    }
-  })
+  var tr = Transactor(mkDB(), {
+    name: {type: 'String'},
+    email: {type: 'String'}
+  }, mkNextId())
+
   var fb = await tr.transact([
     {$e: 'aaa', name: 'jim', email: 'a@a.a'},
     {$e: 'bbb', email: 'b@b.b'}

@@ -1,19 +1,19 @@
 var isFB = require('./isFB')
 var promisify = require('./promisify')
 
-module.exports = function get (fb, id, callback) {
+module.exports = function get (fb, $e, callback) {
   if (isFB(this)) {
-    callback = id
-    id = fb
+    callback = $e
+    $e = fb
     fb = this
   }
 
   callback = callback || promisify()
 
-  fb.q([['?e', '?a', '?v']], {e: id}, [], function (err, results) {
+  fb.q([['?e', '?a', '?v']], {e: $e}, [], function (err, results) {
     if (err) return callback(err)
 
-    var entity = {$e: id}
+    var entity = {$e: $e}
     results.forEach(function (result) {
       entity[result.a] = result.v
     })
