@@ -1,10 +1,11 @@
-var Transactor = require('./Transactor')
 var charwise = require('charwise')
 var dbRange = require('./dbRange')
 var encode = require('encoding-down')
 var levelup = require('levelup')
 var memdown = require('memdown')
+var q = require('./q')
 var test = require('ava')
+var Transactor = require('./Transactor')
 
 function mkDB () {
   return levelup(encode(memdown(), {
@@ -209,4 +210,62 @@ test('Schema type assertions', async function (t) {
   await tError({incomplete: '?'}, 'Error: Attribute `incomplete` is missing `_s/type`')
   await tError({unsupported: '?'}, 'Error: Attribute `unsupported`\'s `_s/type` "Foo" is not supported')
   await tError({name: 123}, 'TypeError: Expected a String for attribute `name`')
+})
+
+test('qTuple', async function (t) {
+  var tr = Transactor({
+    db: mkDB(),
+    nextId: mkNextId(),
+    schema: {
+      father: {type: 'String'},
+      mother: {type: 'String'}
+    }
+  })
+  var fb = await tr.transact([
+    {$e: 'axl', father: 'mike', mother: 'frankie'},
+    {$e: 'sue', father: 'mike', mother: 'frankie'},
+    {$e: 'brick', father: 'mike', mother: 'frankie'},
+    {$e: 'mike', father: 'big mike'},
+    {$e: 'rusty', father: 'big mike'},
+    {$e: 'frankie', father: 'tag', mother: 'pat'},
+    {$e: 'janet', father: 'tag', mother: 'pat'}
+  ])
+
+  var data = await q(fb, [['?id', 'father', '?dad']], {})
+  t.deepEqual(data, [
+    {id: 'mike', dad: 'big mike'},
+    {id: 'rusty', dad: 'big mike'},
+    {id: 'axl', dad: 'mike'},
+    {id: 'brick', dad: 'mike'},
+    {id: 'sue', dad: 'mike'},
+    {id: 'frankie', dad: 'tag'},
+    {id: 'janet', dad: 'tag'}
+  ])
+
+  data = await q(fb, [['?id', 'father', '?dad']], {
+    dad: 'mike'
+  })
+  t.deepEqual(data, [
+    {id: 'axl', dad: 'mike'},
+    {id: 'brick', dad: 'mike'},
+    {id: 'sue', dad: 'mike'}
+  ])
+
+  data = await q(fb, [['?id', 'father', '?dad']], {
+    dad: 'mike'
+  }, ['id'])
+  t.deepEqual(data, [
+    {id: 'axl'},
+    {id: 'brick'},
+    {id: 'sue'}
+  ])
+
+  data = await q(fb, [
+    ['?child', 'father', '?husband'],
+    ['?child', 'mother', '?wife']
+  ], {}, ['husband', 'wife'])
+  t.deepEqual(data, [
+    {husband: 'mike', wife: 'frankie'},
+    {husband: 'tag', wife: 'pat'}
+  ])
 })

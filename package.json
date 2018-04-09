@@ -40,7 +40,8 @@
   },
   "dependencies": {
     "cuid": "^2.1.1",
-    "fastq": "^1.5.0"
+    "fastq": "^1.5.0",
+    "lodash": "^4.17.5"
   },
   "devDependencies": {
     "ava": "^0.25.0",
@@ -52,7 +53,6 @@
     "level-errors": "^1.1.2",
     "level-hash-index": "0.1.1",
     "levelup": "^2.0.2",
-    "lodash": "3.8.0",
     "memdown": "^2.0.0",
     "tape": "^4.0.0"
   }
