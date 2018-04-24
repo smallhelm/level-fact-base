@@ -1,5 +1,5 @@
 var charwise = require('charwise')
-var dbRange = require('./dbRange')
+var dbRange = require('./src/dbRange')
 var encode = require('encoding-down')
 var levelup = require('levelup')
 var memdown = require('memdown')

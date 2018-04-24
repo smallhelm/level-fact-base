@@ -119,15 +119,15 @@ Initialize the fact-base and return a transactor (`tr` for short)
  * `db` is any thing that exposes a levelup api.
  * `initSchema` the current expected schema for the transactor to use. As part of starting up the transactor it will sync up the schema to match what you pass it.
 
-#### fb = await tr.snap()
+#### tr.snap() -> fb
 
 Asynchronously get the current snapshot of the database.
 
-#### fb = await tr.asOf(txn)
+#### tr.asOf(txn) -> fb
 
 Asynchronously get a given `txn` version of the database.
 
-#### fb = await tr.transact(entities, callback)
+#### tr.transact(entities) -> fb
 
 Assert facts and get the resulting new version of the database.
 
@@ -142,11 +142,11 @@ transact([
     // ['101', 'name' , 'bob'     ]
   }
 ], function(err, fb){
-  // fb is the resulting fb version
+  // fb is the new fb version
 })
 ```
 
-#### fb.q(tuples, binding, select, callback)
+#### fb.q(tuples, binding, select) -> results
 
 The main entry point for performing datalog queries. Anything that starts with `'?'` is a binding variable.
 
@@ -159,8 +159,8 @@ fb.q([[ '?uid', 'user_email'    , '?email' ],
 
       [ 'cid', 'text' ], // select which result bindings we care about
 
-      function(err, r){
-        // r is
+      function(err, results){
+        // results are
         // [
         //   {cid: '123', text: 'some comment about the post...'},
         //   {cid: '321', text: 'annother comment'},
@@ -168,10 +168,10 @@ fb.q([[ '?uid', 'user_email'    , '?email' ],
         // ]
       })
 ```
-To help prevent injection attacks only use strings, numbers, and booleans inside the query. Don't put variables in the query, pass them in as bindings. This way they can be properly checked and escaped.
+NOTE: To help prevent injection attacks, use bindings to pass in untrusted data so it's properly escaped.
 
 
-#### fb.get(fb, $e, callback)
+#### fb.get($e) -> entity
 A sugar function that simply gets all attributes an entity.
 
 ```js
