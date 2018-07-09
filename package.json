@@ -29,15 +29,15 @@
     "test": "ava"
   },
   "dependencies": {
-    "contra": "1.8.1",
+    "async": "^2.6.0",
     "cuid": "^2.1.1",
-    "fastq": "^1.5.0",
-    "lodash": "^4.17.5"
+    "fastq": "^1.5.0"
   },
   "devDependencies": {
     "ava": "^0.25.0",
     "charwise": "^3.0.1",
     "encoding-down": "^4.0.0",
+    "leveldown": "^3.0.0",
     "levelup": "^2.0.2",
     "memdown": "^2.0.0"
   }

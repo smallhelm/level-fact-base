@@ -10,7 +10,6 @@ level-fact-base is inspired by [Datomic](http://www.datomic.com/)
 
 ## Why "Facts"??
 
-### Anatomy of a fact
 A fact is something that happened.
 
  * `E` - ***Entity*** - an id that represents an entity i.e. `"user10"`

@@ -1,4 +1,4 @@
-var λ = require('contra')
+var asyncEach = require('async/eachSeries')
 var cuid = require('cuid')
 var dbRange = require('./dbRange')
 var fastq = require('fastq')
@@ -187,7 +187,7 @@ function getSchemaAsOf (db, txn, callback) {
       byId: {},
       byAttr: {}
     }
-    λ.each(attrIds, function (id, next) {
+    asyncEach(attrIds, function (id, next) {
       getEntity(db, txn, id, function (err, entity) {
         if (err) return next(err)
 

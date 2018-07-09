@@ -1,8 +1,7 @@
-var _ = require('lodash')
-var λ = require('contra')
 var dbRange = require('./dbRange')
-var promisify = require('./promisify')
+var eachSeries = require('async/eachSeries')
 var isFB = require('./isFB')
+var promisify = require('./promisify')
 
 function escapeVar (elm) {
   return typeof elm === 'string'
@@ -68,7 +67,14 @@ var selectIndex = (function () {
   }
 }())
 
-function qTuple (fb, tupleOrig, binding, callback) {
+var indexScore = {
+  eavto: 300,
+  teavo: 200,
+  aveto: 100,
+  vaeto: 0
+}
+
+function parseTuple (fb, tupleOrig, binding) {
   var tuple = bindToTuple(tupleOrig, binding)
 
   var qFact = {}
@@ -77,9 +83,14 @@ function qTuple (fb, tupleOrig, binding, callback) {
   qFact.v = tuple[2]
   qFact.t = tuple[3]
 
+  if (isKnown(qFact.a) && !fb.schema.byAttr[qFact.a]) {
+    throw new Error('Attribute `' + qFact.a + '` schema not found')
+  }
+
   var index = selectIndex(qFact)
   var prefix = [index]
-  for (var i = 0; i < index.length; i++) {
+  var i
+  for (i = 0; i < index.length; i++) {
     if (isKnown(qFact[index[i]])) {
       prefix.push(qFact[index[i]])
     } else {
@@ -88,20 +99,38 @@ function qTuple (fb, tupleOrig, binding, callback) {
   }
 
   var toBind = {}
-  for (var i = 0; i < index.length; i++) {
+  for (i = 0; i < index.length; i++) {
     if (isVar(qFact[index[i]])) {
       toBind[i + 1] = qFact[index[i]].substr(1)
     }
   }
 
-  var iE = index.indexOf('e') + 1
-  var iA = index.indexOf('a') + 1
-  var iT = index.indexOf('t') + 1
+  var score = indexScore[index] + (prefix.length * 10)
+  if (isKnown(qFact.a)) {
+    var type = fb.schema.byAttr[qFact.a]['_s/type']
+    if (type === 'EntityID') {
+      score += 1
+    }
+  }
+  return {
+    score: score,
+    index: index,
+    prefix: prefix,
+    toBind: toBind
+  }
+}
+
+function qTuple (fb, tuple, binding, callback) {
+  var pt = parseTuple(fb, tuple, binding)
+
+  var iE = pt.index.indexOf('e') + 1
+  var iA = pt.index.indexOf('a') + 1
+  var iT = pt.index.indexOf('t') + 1
 
   var latestResults = {}
 
   dbRange(fb.db, {
-    prefix: prefix
+    prefix: pt.prefix
   }, function (data) {
     var $t = data.key[iT]
     if ($t > fb.txn) {
@@ -113,8 +142,8 @@ function qTuple (fb, tupleOrig, binding, callback) {
     }
 
     var result = {}
-    Object.keys(toBind).forEach(function (i) {
-      result[toBind[i]] = data.key[i]
+    Object.keys(pt.toBind).forEach(function (i) {
+      result[pt.toBind[i]] = data.key[i]
     })
 
     latestResults[resultKey] = {t: $t, d: result}
@@ -126,6 +155,28 @@ function qTuple (fb, tupleOrig, binding, callback) {
     })
     callback(null, results)
   })
+}
+
+function ResultSet () {
+  var set = {}
+  var arr = []
+  return {
+    add: function (binding) {
+      var key = ''
+      Object.keys(binding)
+        .sort()
+        .forEach(function (k) {
+          key += k + ':' + binding[k] + ','
+        })
+      if (!set[key]) {
+        arr.push(binding)
+        set[key] = true
+      }
+    },
+    toArray: function () {
+      return arr
+    }
+  }
 }
 
 module.exports = function q (fb, tuples, binding, select, callback) {
@@ -140,37 +191,44 @@ module.exports = function q (fb, tuples, binding, select, callback) {
   binding = binding || {}
   callback = callback || promisify()
 
+  tuples.sort(function (a, b) {
+    a = parseTuple(fb, a, binding).score
+    b = parseTuple(fb, b, binding).score
+    return b - a
+  })
+
   var memo = [binding]
-  λ.each.series(tuples, function (tuple, callback) {
-    λ.map.series(memo, function (binding, callback) {
+
+  eachSeries(tuples, function (tuple, callback) {
+    var rset = ResultSet()
+    eachSeries(memo, function (binding, callback) {
       qTuple(fb, tuple, binding, function (err, results) {
         if (err) return callback(err)
-        callback(null, results)
+        results.forEach(function (result) {
+          rset.add(result)
+        })
+        callback()
       })
-    }, function (err, nextBindings) {
+    }, function (err) {
       if (err) return callback(err)
-      memo = _.flatten(nextBindings)
-      memo = _.uniqBy(memo, function (binding) {
-        return JSON.stringify(binding)
-      })
+      memo = rset.toArray()
       callback()
     })
   }, function (err) {
     if (err) return callback(err)
 
     if (select && select.length > 0) {
-      memo = _.map(memo, function (binding) {
+      var rset = ResultSet()
+      memo.forEach(function (binding) {
         var r = {}
-        _.each(select, function (key) {
+        select.forEach(function (key) {
           r[key] = binding[key]
         })
-        return r
+        rset.add(r)
       })
+      callback(null, rset.toArray())
+      return
     }
-
-    memo = _.uniqBy(memo, function (binding) {
-      return JSON.stringify(binding)
-    })
 
     callback(null, memo)
   })
