@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "charwise": "^3.0.1",
+    "cuid": "^2.1.4",
+    "level": "^4.0.0",
+    "level-fact-base": "^1.0.0"
+  }
+}

@@ -111,6 +111,8 @@ tr.snap(function(err, fb){ ... })
 var fb = await tr.snap()
 ```
 
+Checkout [example/index.js](https://github.com/smallhelm/level-fact-base/blob/master/example/index.js) for a more complete example.
+
 ### tr = Transactor(db, initSchema)
 
 Initialize the fact-base and return a transactor (`tr` for short)
