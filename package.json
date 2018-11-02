@@ -1,11 +1,9 @@
 {
   "name": "level-fact-base",
   "version": "0.1.1",
-  "description": "Store \"facts\" in level and query them via datalog",
+  "description": "Store immutable \"facts\" and query them with datalog.",
   "main": "src/index.js",
-  "files": [
-    "src"
-  ],
+  "files": ["src"],
   "keywords": [
     "level",
     "levelup",
@@ -26,7 +24,7 @@
     "url": "https://github.com/smallhelm/level-fact-base/issues"
   },
   "scripts": {
-    "test": "ava"
+    "test": "standard && ava"
   },
   "dependencies": {
     "async": "^2.6.0",
@@ -36,9 +34,10 @@
   "devDependencies": {
     "ava": "^0.25.0",
     "charwise": "^3.0.1",
-    "encoding-down": "^4.0.0",
-    "leveldown": "^3.0.0",
-    "levelup": "^2.0.2",
-    "memdown": "^2.0.0"
+    "encoding-down": "^5.0.4",
+    "leveldown": "^4.0.1",
+    "levelup": "^3.1.1",
+    "memdown": "^3.0.0",
+    "standard": "^12.0.1"
   }
 }

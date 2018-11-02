@@ -4,7 +4,7 @@
 [![stability - experimental](https://img.shields.io/badge/stability-experimental-orange.svg)](https://nodejs.org/api/documentation.html#documentation_stability_index)
 [![JavaScript Style Guide](https://img.shields.io/badge/code_style-standard-brightgreen.svg)](https://standardjs.com)
 
-Store "facts" in level and query them via datalog
+Store immutable "facts" in [level](https://github.com/Level/level) and query them with datalog.
 
 level-fact-base is inspired by [Datomic](http://www.datomic.com/)
 
@@ -87,10 +87,10 @@ The fact datalog equivalent:
 ```js
 var Transactor = require('level-fact-base')
 
-var db = levelup(encode(memdown(), {
-  keyEncoding: charwise,// or bytewise, or any codec that encodes sorted arrays of flat json values
+var db = level('db', {
+  keyEncoding: require('charwise'),// or bytewise, or any codec for sorted arrays of flat json values
   valueEncoding: 'json'
-}))
+})
 
 // define a schema for attributes
 // like datomic schema is stored and versioned inside the database
@@ -106,7 +106,7 @@ var tr = Transactor(db, schema)
 
 // like levelup, every asynchronous function either takes a callback or returns a promise
 // i.e. a callback
-tr.snap(function(err, db){ ... })
+tr.snap(function(err, fb){ ... })
 // or return a Promise
 var fb = await tr.snap()
 ```
@@ -143,6 +143,9 @@ transact([
 ], function(err, fb){
   // fb is the new fb version
 })
+
+// or
+fb = await transact([..])
 ```
 
 #### fb.q(tuples, binding, select) -> results
@@ -166,6 +169,9 @@ fb.q([[ '?uid', 'user_email'    , '?email' ],
         //   ...
         // ]
       })
+
+// or
+results = await fb.q([..], {..}, [..])
 ```
 NOTE: To help prevent injection attacks, use bindings to pass in untrusted data so it's properly escaped.
 
@@ -179,6 +185,9 @@ fb.get('101', function(err, user){
   // user is {$e: '101', name: 'bob', email: 'my@email'}
 
 })
+
+// or
+user = await fb.get('101')
 ```
 
 ## License

@@ -1,4 +1,4 @@
-var asyncEach = require('async/eachSeries')
+var eachSeries = require('async/eachSeries')
 var cuid = require('cuid')
 var dbRange = require('./dbRange')
 var fastq = require('fastq')
@@ -56,7 +56,7 @@ function assertSchema (fb, eId, attr, value) {
   }
 }
 
-function transact (db, fb, entities, callback) {
+function transact (db, fb, entities, nextId, callback) {
   var txn = fb.txn + 1
 
   var schemaChanged = false
@@ -88,7 +88,7 @@ function transact (db, fb, entities, callback) {
         v: value,
         t: txn,
         o: !entity.$retract,
-        factId: cuid()
+        factId: nextId()
       })
     })
   })
@@ -187,7 +187,7 @@ function getSchemaAsOf (db, txn, callback) {
       byId: {},
       byAttr: {}
     }
-    asyncEach(attrIds, function (id, next) {
+    eachSeries(attrIds, function (id, next) {
       getEntity(db, txn, id, function (err, entity) {
         if (err) return next(err)
 
@@ -231,7 +231,7 @@ module.exports = function Transactor (db, initSchema, nextId) {
 
   var transactQ = fastq(function (entities, callback) {
     try {
-      transact(db, currFB, entities, function (err, fb) {
+      transact(db, currFB, entities, nextId, function (err, fb) {
         if (err) return callback(err)
         if (fb) {
           currFB = fb

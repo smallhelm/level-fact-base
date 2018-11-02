@@ -10,10 +10,10 @@ module.exports = function get (fb, $e, callback) {
 
   callback = callback || promisify()
 
-  fb.q([['?e', '?a', '?v']], {e: $e}, [], function (err, results) {
+  fb.q([['?e', '?a', '?v']], { e: $e }, [], function (err, results) {
     if (err) return callback(err)
 
-    var entity = {$e: $e}
+    var entity = { $e: $e }
     results.forEach(function (result) {
       entity[result.a] = result.v
     })

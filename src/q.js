@@ -146,7 +146,7 @@ function qTuple (fb, tuple, binding, callback) {
       result[pt.toBind[i]] = data.key[i]
     })
 
-    latestResults[resultKey] = {t: $t, d: result}
+    latestResults[resultKey] = { t: $t, d: result }
   }, function (err) {
     if (err) return callback(err)
 

@@ -69,20 +69,20 @@ vaeto|_s/attr|_s/attr|id1|1|true
 vaeto|_s/txn-time|_s/attr|id3|1|true
 vaeto|_s/type|_s/attr|id2|1|true
   `.trim())
-  var error = await t.throws(tr0.transact([{name: 'bob'}]))
+  var error = await t.throws(tr0.transact([{ name: 'bob' }]))
   t.is(error + '', 'Error: Fact tuple missing `$e`')
 
-  error = await t.throws(tr0.transact([{$e: 123, name: 'bob'}]))
+  error = await t.throws(tr0.transact([{ $e: 123, name: 'bob' }]))
   t.is(error + '', 'TypeError: EntityID `$e` should be a String')
 
   fb = await tr0.transact([])
-  fb = await tr0.transact([{$e: 'A0'}])
+  fb = await tr0.transact([{ $e: 'A0' }])
   t.is(fb.txn, 1, 'nothing actually transacted')
 
   schema = {
-    name: {type: 'String'},
-    email: {type: 'String'},
-    foo: {type: 'String'}
+    name: { type: 'String' },
+    email: { type: 'String' },
+    foo: { type: 'String' }
   }
   var tr1 = Transactor(db, schema, nextId)
 
@@ -136,7 +136,7 @@ vaeto|some@email|email|AA|3|true
 test('Schema setup', async function (t) {
   var nextId = mkNextId()
   var tr = Transactor(mkDB(), {
-    username: {type: 'String'}
+    username: { type: 'String' }
   }, nextId)
 
   var fb = await tr.snap()
@@ -170,7 +170,7 @@ test('Schema setup', async function (t) {
   }])
 
   t.deepEqual(fb.schema.byAttr.email, {
-    $e: 'id5',
+    $e: 'id13',
     '_s/attr': 'email',
     '_s/type': 'String'
   })
@@ -184,9 +184,9 @@ test('Schema setup', async function (t) {
 test('Schema type assertions', async function (t) {
   var nextId = mkNextId()
   var tr = Transactor(mkDB(), {
-    name: {type: 'String'},
+    name: { type: 'String' },
     incomplete: {},
-    unsupported: {type: 'Foo'}
+    unsupported: { type: 'Foo' }
   }, nextId)
 
   async function tError (entity, expectedMsg) {
@@ -195,55 +195,55 @@ test('Schema type assertions', async function (t) {
     t.is(error + '', expectedMsg)
   }
 
-  await tError({watda: '?'}, 'Error: Attribute `watda` schema not found')
-  await tError({incomplete: '?'}, 'Error: Attribute `incomplete` is missing `_s/type`')
-  await tError({unsupported: '?'}, 'Error: Attribute `unsupported`\'s `_s/type` "Foo" is not supported')
-  await tError({name: 123}, 'TypeError: Expected a String for attribute `name`')
+  await tError({ watda: '?' }, 'Error: Attribute `watda` schema not found')
+  await tError({ incomplete: '?' }, 'Error: Attribute `incomplete` is missing `_s/type`')
+  await tError({ unsupported: '?' }, 'Error: Attribute `unsupported`\'s `_s/type` "Foo" is not supported')
+  await tError({ name: 123 }, 'TypeError: Expected a String for attribute `name`')
 })
 
 test('q', async function (t) {
   var tr = Transactor(mkDB(), {
-    father: {type: 'String'},
-    mother: {type: 'String'}
+    father: { type: 'String' },
+    mother: { type: 'String' }
   }, mkNextId())
 
   var fb = await tr.transact([
-    {$e: 'axl', father: 'mike', mother: 'frankie'},
-    {$e: 'sue', father: 'mike', mother: 'frankie'},
-    {$e: 'brick', father: 'mike', mother: 'frankie'},
-    {$e: 'mike', father: 'big mike'},
-    {$e: 'rusty', father: 'big mike'},
-    {$e: 'frankie', father: 'tag', mother: 'pat'},
-    {$e: 'janet', father: 'tag', mother: 'pat'}
+    { $e: 'axl', father: 'mike', mother: 'frankie' },
+    { $e: 'sue', father: 'mike', mother: 'frankie' },
+    { $e: 'brick', father: 'mike', mother: 'frankie' },
+    { $e: 'mike', father: 'big mike' },
+    { $e: 'rusty', father: 'big mike' },
+    { $e: 'frankie', father: 'tag', mother: 'pat' },
+    { $e: 'janet', father: 'tag', mother: 'pat' }
   ])
 
   var data = await fb.q([['?id', 'father', '?dad']])
   t.deepEqual(data, [
-    {id: 'mike', dad: 'big mike'},
-    {id: 'rusty', dad: 'big mike'},
-    {id: 'axl', dad: 'mike'},
-    {id: 'brick', dad: 'mike'},
-    {id: 'sue', dad: 'mike'},
-    {id: 'frankie', dad: 'tag'},
-    {id: 'janet', dad: 'tag'}
+    { id: 'mike', dad: 'big mike' },
+    { id: 'rusty', dad: 'big mike' },
+    { id: 'axl', dad: 'mike' },
+    { id: 'brick', dad: 'mike' },
+    { id: 'sue', dad: 'mike' },
+    { id: 'frankie', dad: 'tag' },
+    { id: 'janet', dad: 'tag' }
   ])
 
   data = await fb.q([['?id', 'father', '?dad']], {
     dad: 'mike'
   })
   t.deepEqual(data, [
-    {id: 'axl', dad: 'mike'},
-    {id: 'brick', dad: 'mike'},
-    {id: 'sue', dad: 'mike'}
+    { id: 'axl', dad: 'mike' },
+    { id: 'brick', dad: 'mike' },
+    { id: 'sue', dad: 'mike' }
   ])
 
   data = await fb.q([['?id', 'father', '?dad']], {
     dad: 'mike'
   }, ['id'])
   t.deepEqual(data, [
-    {id: 'axl'},
-    {id: 'brick'},
-    {id: 'sue'}
+    { id: 'axl' },
+    { id: 'brick' },
+    { id: 'sue' }
   ])
 
   data = await fb.q([
@@ -251,20 +251,20 @@ test('q', async function (t) {
     ['?child', 'mother', '?wife']
   ], {}, ['husband', 'wife'])
   t.deepEqual(data, [
-    {husband: 'mike', wife: 'frankie'},
-    {husband: 'tag', wife: 'pat'}
+    { husband: 'mike', wife: 'frankie' },
+    { husband: 'tag', wife: 'pat' }
   ])
 })
 
 test('get', async function (t) {
   var tr = Transactor(mkDB(), {
-    name: {type: 'String'},
-    email: {type: 'String'}
+    name: { type: 'String' },
+    email: { type: 'String' }
   }, mkNextId())
 
   var fb = await tr.transact([
-    {$e: 'aaa', name: 'jim', email: 'a@a.a'},
-    {$e: 'bbb', email: 'b@b.b'}
+    { $e: 'aaa', name: 'jim', email: 'a@a.a' },
+    { $e: 'bbb', email: 'b@b.b' }
   ])
 
   t.deepEqual(await fb.get('aaa'), {
@@ -279,7 +279,7 @@ test('get', async function (t) {
   })
 
   var fbNew = await tr.transact([
-    {$e: 'aaa', name: 'a name change'}
+    { $e: 'aaa', name: 'a name change' }
   ])
 
   t.deepEqual(await fb.get('aaa'), {
