@@ -1,21 +1,9 @@
 {
   "name": "level-fact-base",
   "version": "0.1.1",
-  "description": "Store \"facts\" in level and query them via datalog",
-  "main": "index.js",
-  "files": [
-    "any-value-async-q.js",
-    "connection.js",
-    "constants.js",
-    "getEntity.js",
-    "index.js",
-    "q.js",
-    "qTuple.js",
-    "schema-utils.js",
-    "transactor.js",
-    "utils/assertFB.js",
-    "utils/toPaddedBase36.js"
-  ],
+  "description": "Store immutable \"facts\" and query them with datalog.",
+  "main": "src/index.js",
+  "files": ["src"],
   "keywords": [
     "level",
     "levelup",
@@ -35,21 +23,21 @@
   "bugs": {
     "url": "https://github.com/smallhelm/level-fact-base/issues"
   },
-  "devDependencies": {
-    "gent": "^0.6.2",
-    "levelup": "^0.19.0",
-    "memdown": "^1.0.0",
-    "tap-dot": "^1.0.0",
-    "tape": "^4.0.0"
-  },
   "scripts": {
-    "test": "node tests.js | tap-dot"
+    "test": "standard && ava"
   },
   "dependencies": {
-    "contra": "1.8.1",
-    "escape-regexp": "0.0.1",
-    "level-errors": "^1.0.3",
-    "level-hash-index": "0.1.1",
-    "lodash": "3.8.0"
+    "async": "^2.6.0",
+    "cuid": "^2.1.1",
+    "fastq": "^1.5.0"
+  },
+  "devDependencies": {
+    "ava": "^0.25.0",
+    "charwise": "^3.0.1",
+    "encoding-down": "^5.0.4",
+    "leveldown": "^4.0.1",
+    "levelup": "^3.1.1",
+    "memdown": "^3.0.0",
+    "standard": "^12.0.1"
   }
 }

@@ -1,28 +1,32 @@
 # level-fact-base
 
 [![Build Status](https://travis-ci.org/smallhelm/level-fact-base.svg?branch=master)](https://travis-ci.org/smallhelm/level-fact-base)
+[![stability - experimental](https://img.shields.io/badge/stability-experimental-orange.svg)](https://nodejs.org/api/documentation.html#documentation_stability_index)
+[![JavaScript Style Guide](https://img.shields.io/badge/code_style-standard-brightgreen.svg)](https://standardjs.com)
 
-Store "facts" in level and query them via datalog
+Store immutable "facts" in [level](https://github.com/Level/level) and query them with datalog.
 
-# Why "Facts"??
+level-fact-base is inspired by [Datomic](http://www.datomic.com/)
 
-## Anatomy of a fact
+## Why "Facts"??
+
 A fact is something that happened.
 
  * `E` - ***Entity*** - an id that represents an entity i.e. `"user10"`
  * `A` - ***Attribute*** - the attribute the fact is about i.e. `"email"`
  * `V` - ***Value*** - the attribute value i.e. `"some@email"`
- * `T` - ***Time*** - when this fact became true
+ * `T` - ***Transaction*** - when this fact became true
  * `O` - ***Assertion/Retraction*** - whether the fact was asserted or retracted
 
-## The power of facts
+### The power of facts
 Using a fact based information model inherently provide these 3 benefits.
 
-### 1 - Flexible data model
-Only storing facts makes adapting to changing requirements easy.
+#### 1 - Flexible data model
 
-### 2 - Built in, queryable history and auditing
-Most databases only remember the last thing that was true. For example
+When you write data you don't need to think much about how it will be queried later. You simply assert attributes about an entity. Facts are not tightly coupled with structure.
+
+#### 2 - Built in, queryable history and auditing
+Most databases only remember the last thing that was true. For example:
 
 ```txt
  - April 1 -
@@ -32,171 +36,159 @@ user10 : Set email to "old@email"
 user10 : Set email to "new@email"
 
  - April 18 -
-You    : What is the user10's email address?
+You    : What is user10's email address?
 aDumbDB: "new@email"
 
 You    : What was user10's email on April 3?
 aDumbDB: "new@email"
 ```
-What you really want is this:
+
+But what you really want is this:
+
 ```txt
-You     : What is the user10's email address?
+You     : What is user10's email address?
 FactBase: "new@email", on April 6 it was set by user10
 
 You     : What was user10's email on April 3?
-FactBase: "old@email", on April 1 it was set by user10, but on April 6 it was unset by user10
+FactBase: "old@email", on April 1 it was set by user10, but on April 6 it was changed to "new@email" by user10
 ```
 
-### 3 - Easy to query with performant joins
-Joins are very powerful and can make your life easier. If your database doesn't provide them, then you need to do them by hand. The way they are commonly implemented in SQL style databases can cause performance headaches. They can also be a pain to write and understand.
+#### 3 - Easy to query with performant joins
 
-Using a fact based data model and datalog makes joins not only easy to express, but they are naturally performant.
+Fact base joins are implicit, it simply matches binding variables and unions results. The database is fully indexed for you so you don't need to worry about primary keys or indexes.
 
-Lets say you want all of the blog comments for user 10.
+For example in SQL:
 ```sql
 SELECT
   c.id,
   c.text
 FROM
   users u
-  JOIN comment ON c.user_id = u.id
+  JOIN comment c ON c.userId = u.id
 WHERE
-  u.id = 10
-```
-Contrast that with the level-fact-base datalog equivalent
-```js
-[["?id", "user/id"     , 10     ],
- ["?id", "comment/text", "?text"]]
+  u.email = 'my@email'
 ```
 
-# Inspired by Datomic, but not Datomic
-If you haven't heard about [Datomic](http://www.datomic.com/), go read about it now!
-
-level-fact-base is not a re-implementation or a clone of Datomic. However, its information model and use of datalog are inspired by Datomic.
-
-# API
-
-The API is fairly stable. Once this project is a v1.x.x release it will follow semver so breaking API changes will be noted and expressed by incrementing the major version number.
+The fact datalog equivalent:
 
 ```js
-//the writer
-var Transactor = require("level-fact-base/transactor");
+[
+  ['?uid', 'user_email'    , 'my@email'],
+  ['?cid', 'comment_userId', '?uid'    ],
+  ['?cid', 'comment_text'  , '?text'   ]
+]
+// implicitly joined on ?uid and ?cid
 
-//the connection
-var Connection = require("level-fact-base/connection");
-
-//query functions
-var q          = require("level-fact-base/q");
-var qTuple     = require("level-fact-base/qTuple");
-var getEntity  = require("level-fact-base/getEntity");
 ```
 
 
-## Transactor(db[, options], onStartup)
+## API
+
+```js
+var Transactor = require('level-fact-base')
+
+var db = level('db', {
+  keyEncoding: require('charwise'),// or bytewise, or any codec for sorted arrays of flat json values
+  valueEncoding: 'json'
+})
+
+// define a schema for attributes
+// like datomic schema is stored and versioned inside the database
+var schema = {
+  user_name: {type: 'String'},
+  user_email: {type: 'String'},
+  comment_userId: {type: 'EntityID'}
+  comment_text: {type: 'String'}
+  // ...
+}
+
+var tr = Transactor(db, schema)
+
+// like levelup, every asynchronous function either takes a callback or returns a promise
+// i.e. a callback
+tr.snap(function(err, fb){ ... })
+// or return a Promise
+var fb = await tr.snap()
+```
+
+### tr = Transactor(db, initSchema)
+
+Initialize the fact-base and return a transactor (`tr` for short)
+
  * `db` is any thing that exposes a levelup api.
- * `options.hindex` by default it's [level-hash-index](https://github.com/smallhelm/level-hash-index), but you can pass in your own thing that exposes that api.
- * `onStartup(err, transactor)` is called once the transactor is warm and ready to go
- * `transactor.connection` is an instance of the Connection object
- * `transactor.transact` is the `transact` function
+ * `initSchema` the current expected schema for the transactor to use. As part of starting up the transactor it will sync up the schema to match what you pass it.
 
-### transact(fact\_tuples[, tx\_data], callback)
-This is the only function for making writes to level-fact-base. `tx_data` are attributes and values that will be expanded to the transaction tuples. This is useful for retaining information about the transaction itself.
+#### tr.snap() -> fb
 
-```js
-transact([["10", "user/email", "my@email"],
-          ["10", "user/name" , "bob"     ]],
+Asynchronously get the current snapshot of the database.
 
-         {"performed/by": "10"},
+#### tr.asOf(txn) -> fb
 
-         function(err, fb){
-           //fb is the latest fb version
-         })
-```
+Asynchronously get a given `txn` version of the database.
 
-## Connection(db[, options], callback)
- * `db` is any thing that exposes a levelup api.
- * `options.hindex` by default it's [level-hash-index](https://github.com/smallhelm/level-hash-index), but you can pass in your own thing that exposes that api.
- * `callback(err, connection)` is called once the connection is ready
+#### tr.transact(entities) -> fb
 
-### fb = connection.snap()
-Get a snapshot of the database.
-
-### fb = connection.asOf(txn\_id, callback)
-Get the database at a particular transaction id
- * `txn_id` the transaction number you wish to get a snapshot of
- * `callback(err, fb)` the fb value at that `txn_id`
-
-## q(fb, tuples[, bindings], callback)
-The main entry point for performing datalog queries. As you'll notice it's just javascript arrays. Anything that starts with `"?"` is considered a variable. `"?_"` is the throw away variable (not bound to anything)
+Assert facts and get the resulting new version of the database.
 
 ```js
-q(fb, [["?id", "user/id"     , "?user_id"],
-       ["?id", "comment/text", "?text"   ]],
+transact([
+  {
+    $e: '101', // the entity id
+    email: 'my@email',
+    name: 'bob',
+    // This expands to:
+    // ['101', 'email', 'my@email']
+    // ['101', 'name' , 'bob'     ]
+  }
+], function(err, fb){
+  // fb is the new fb version
+})
 
-      [{"?user_id": 10}],
-
-      function(err, r){
-
-        //r is [
-        //  {"?user_id": 10, "?id": 123, "?text": "some comment about the post..."},
-        //  {"?user_id": 10, "?id": 321, "?text": "annother comment"},
-        //  ...
-        //];
-
-      });
+// or
+fb = await transact([..])
 ```
-To help prevent injection attacks only use strings, numbers, and booleans inside the query. Don't put variables in the query, pass them in as bindings. This way they can be properly checked and escaped.
 
-## qTuple(fb, tuples[, binding], callback)
-`q` is built upon this function. It is called for every tuple in `q` and for each of `q`'s bindings.
+#### fb.q(tuples, binding, select) -> results
+
+The main entry point for performing datalog queries. Anything that starts with `'?'` is a binding variable.
 
 ```js
-qTuple(fb, ["?id", "user/id", "?user_id"],
+fb.q([[ '?uid', 'user_email'    , '?email' ],
+      [ '?cid', 'comment_userId', '?uid'   ],
+      [ '?cid', 'comment_text'  , '?text'  ]
 
-           {"?user_id": 10},
+      { email: 'my@email' }, // map of bindings i.e. bind ?email to 'my@email'
 
-           function(err, r){
+      [ 'cid', 'text' ], // select which result bindings we care about
 
-             //r is [
-             //  {"?user_id": 10, "?id": 123},
-             //  {"?user_id": 10, "?id": 321},
-             //  ...
-             //];
+      function(err, results){
+        // results are
+        // [
+        //   {cid: '123', text: 'some comment about the post...'},
+        //   {cid: '321', text: 'annother comment'},
+        //   ...
+        // ]
+      })
 
-           });
+// or
+results = await fb.q([..], {..}, [..])
 ```
+NOTE: To help prevent injection attacks, use bindings to pass in untrusted data so it's properly escaped.
 
-## getEntity(fb, e, callback)
-A sugar function that simply gets all attributes and values for `e`.
+
+#### fb.get($e) -> entity
+A sugar function that simply gets all attributes an entity.
 
 ```js
-getEntity(fb, 10, function(err, user){
+fb.get('101', function(err, user){
 
-  // user is {id: 10, name: "bob", email: "my@email"}
+  // user is {$e: '101', name: 'bob', email: 'my@email'}
 
-});
+})
+
+// or
+user = await fb.get('101')
 ```
 
-# License
-
-The MIT License (MIT)
-
-Copyright (c) 2015 Small Helm LLC
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+## License
+MIT
