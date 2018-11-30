@@ -1,6 +1,6 @@
 {
   "name": "level-fact-base",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Store immutable \"facts\" and query them with datalog.",
   "main": "src/index.js",
   "files": [
