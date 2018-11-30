@@ -293,3 +293,28 @@ test('get', async function (t) {
     email: 'a@a.a'
   })
 })
+
+test('Date', async function (t) {
+  var tr = Transactor(mkDB(), {
+    jsDate: { type: 'Date' }
+  }, mkNextId())
+
+  var fb = await tr.transact([
+    { $e: 'aaa', jsDate: new Date(1111) },
+    { $e: 'bbb', jsDate: new Date(2222) },
+    { $e: 'ccc', jsDate: new Date(1111) }
+  ])
+
+  t.deepEqual(await fb.get('aaa'), {
+    $e: 'aaa',
+    jsDate: (new Date(1111)).toISOString()
+  })
+  var data = await fb.q([
+    ['?id', 'jsDate', '?d']
+  ], { d: new Date(1111) }, ['id'])
+
+  t.deepEqual(data, [
+    { id: 'aaa' },
+    { id: 'ccc' }
+  ])
+})

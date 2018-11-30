@@ -2,6 +2,9 @@ module.exports = {
   'Date': {
     validate: function (v) {
       return Object.prototype.toString.call(v) === '[object Date]' && !Number.isNaN(v.getTime())
+    },
+    encode: function (v) {
+      return v.toISOString()
     }
   },
   'String': {

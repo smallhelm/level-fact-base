@@ -39,23 +39,6 @@ function getSchemaFor (fb, attr) {
   }
 }
 
-function assertSchema (fb, eId, attr, value) {
-  var sc = getSchemaFor(fb, attr)
-  if (!sc) {
-    throw new Error('Attribute `' + attr + '` schema not found')
-  }
-  var type = sc['_s/type']
-  if (!type) {
-    throw new Error('Attribute `' + attr + '` is missing `_s/type`')
-  }
-  if (!schemaTypes[type]) {
-    throw new Error('Attribute `' + attr + '`\'s `_s/type` "' + type + '" is not supported')
-  }
-  if (!schemaTypes[type].validate(value)) {
-    throw new TypeError('Expected a ' + type + ' for attribute `' + attr + '`')
-  }
-}
-
 function transact (db, fb, entities, nextId, callback) {
   var txn = fb.txn + 1
 
@@ -80,7 +63,24 @@ function transact (db, fb, entities, nextId, callback) {
 
       var value = entity[attr]
 
-      assertSchema(fb, entity.$e, attr, value)
+      var sc = getSchemaFor(fb, attr)
+      if (!sc) {
+        throw new Error('Attribute `' + attr + '` schema not found')
+      }
+      var type = sc['_s/type']
+      if (!type) {
+        throw new Error('Attribute `' + attr + '` is missing `_s/type`')
+      }
+      const attrType = schemaTypes[type]
+      if (!attrType) {
+        throw new Error('Attribute `' + attr + '`\'s `_s/type` "' + type + '" is not supported')
+      }
+      if (!attrType.validate(value)) {
+        throw new TypeError('Expected a ' + type + ' for attribute `' + attr + '`')
+      }
+      if (attrType.encode) {
+        value = attrType.encode(value)
+      }
 
       facts.push({
         e: entity.$e,

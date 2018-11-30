@@ -2,6 +2,7 @@ var dbRange = require('./dbRange')
 var eachSeries = require('async/eachSeries')
 var isFB = require('./isFB')
 var promisify = require('./promisify')
+var schemaTypes = require('./schemaTypes')
 
 function escapeVar (elm) {
   return typeof elm === 'string'
@@ -190,6 +191,13 @@ module.exports = function q (fb, tuples, binding, select, callback) {
 
   binding = binding || {}
   callback = callback || promisify()
+
+  Object.keys(binding).forEach(function (key) {
+    var value = binding[key]
+    if (schemaTypes.Date.validate(value)) {
+      binding[key] = schemaTypes.Date.encode(value)
+    }
+  })
 
   tuples.sort(function (a, b) {
     a = parseTuple(fb, a, binding).score
