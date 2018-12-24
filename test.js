@@ -321,7 +321,7 @@ test('Date', async function (t) {
 
 test('Function binding', async function (t) {
   var tr = Transactor(mkDB(), {
-    price: { type: 'Integer' },
+    price: { type: 'Integer' }
   }, mkNextId())
 
   var fb = await tr.transact([
@@ -334,8 +334,8 @@ test('Function binding', async function (t) {
     { $e: 'grapes', price: 1 }
   ])
 
-  function gt3 (price) { 
-    return price > 3 
+  function gt3 (price) {
+    return price > 3
   }
 
   var data = await fb.q(
