@@ -16,7 +16,7 @@ function isVar (val) {
   return /^\?/.test(val)
 }
 function isKnown (val) {
-  return val != null && !isVar(val)
+  return val != null && !isVar(val) && typeof val !== 'function'
 }
 
 function bindToTuple (tuple, binding) {
@@ -27,6 +27,7 @@ function bindToTuple (tuple, binding) {
         return escapeVar(binding[key])
       }
     }
+
     return val
   })
 }
@@ -89,6 +90,7 @@ function parseTuple (fb, tupleOrig, binding) {
   }
 
   var index = selectIndex(qFact)
+
   var prefix = [index]
   var i
   for (i = 0; i < index.length; i++) {
@@ -104,6 +106,10 @@ function parseTuple (fb, tupleOrig, binding) {
     if (isVar(qFact[index[i]])) {
       toBind[i + 1] = qFact[index[i]].substr(1)
     }
+
+    if (typeof qFact[index[i]] === 'function') {
+      toBind[i + 1] = qFact.a
+    }
   }
 
   var score = indexScore[index] + (prefix.length * 10)
@@ -113,10 +119,16 @@ function parseTuple (fb, tupleOrig, binding) {
       score += 1
     }
   }
+
+  var filter = typeof binding[qFact.a] === 'function'
+    ? binding[qFact.a]
+    : null
+
   return {
     score: score,
     index: index,
     prefix: prefix,
+    filter: filter,
     toBind: toBind
   }
 }
@@ -126,6 +138,7 @@ function qTuple (fb, tuple, binding, callback) {
 
   var iE = pt.index.indexOf('e') + 1
   var iA = pt.index.indexOf('a') + 1
+  var iV = pt.index.indexOf('v') + 1
   var iT = pt.index.indexOf('t') + 1
 
   var latestResults = {}
@@ -137,6 +150,11 @@ function qTuple (fb, tuple, binding, callback) {
     if ($t > fb.txn) {
       return
     }
+
+    if (pt.filter && !pt.filter(data.key[iV])) {
+      return
+    }
+
     var resultKey = data.key[iE] + '|' + data.key[iA]
     if (latestResults[resultKey] && $t < latestResults[resultKey].t) {
       return
@@ -152,7 +170,7 @@ function qTuple (fb, tuple, binding, callback) {
     if (err) return callback(err)
 
     var results = Object.keys(latestResults).map(function (key) {
-      return Object.assign({}, latestResults[key].d, binding)
+      return Object.assign({}, binding, latestResults[key].d)
     })
     callback(null, results)
   })
@@ -232,6 +250,7 @@ module.exports = function q (fb, tuples, binding, select, callback) {
         select.forEach(function (key) {
           r[key] = binding[key]
         })
+
         rset.add(r)
       })
       callback(null, rset.toArray())

@@ -318,3 +318,34 @@ test('Date', async function (t) {
     { id: 'ccc' }
   ])
 })
+
+test('Function binding', async function (t) {
+  var tr = Transactor(mkDB(), {
+    price: { type: 'Integer' },
+  }, mkNextId())
+
+  var fb = await tr.transact([
+    { $e: 'apple', price: 9 },
+    { $e: 'banana', price: 2 },
+    { $e: 'canteloupe', price: 4 },
+    { $e: 'durian', price: 3 },
+    { $e: 'elderberry', price: 1 },
+    { $e: 'feijoa', price: 2 },
+    { $e: 'grapes', price: 1 }
+  ])
+
+  function gt3 (price) { 
+    return price > 3 
+  }
+
+  var data = await fb.q(
+    [['?id', 'price', '?price']],
+    { price: gt3 },
+    ['id', 'price']
+  )
+
+  t.deepEqual(data, [
+    { id: 'canteloupe', price: 4 },
+    { id: 'apple', price: 9 }
+  ])
+})
