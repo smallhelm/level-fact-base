@@ -27,7 +27,6 @@ function bindToTuple (tuple, binding) {
         return escapeVar(binding[key])
       }
     }
-
     return val
   })
 }
@@ -90,7 +89,6 @@ function parseTuple (fb, tupleOrig, binding) {
   }
 
   var index = selectIndex(qFact)
-
   var prefix = [index]
   var i
   for (i = 0; i < index.length; i++) {
@@ -250,7 +248,6 @@ module.exports = function q (fb, tuples, binding, select, callback) {
         select.forEach(function (key) {
           r[key] = binding[key]
         })
-
         rset.add(r)
       })
       callback(null, rset.toArray())
