@@ -98,18 +98,20 @@ function parseTuple (fb, tupleOrig, binding) {
       break
     }
   }
-
+  
   var toBind = {}
   for (i = 0; i < index.length; i++) {
     if (isVar(qFact[index[i]])) {
       toBind[i + 1] = qFact[index[i]].substr(1)
     }
   }
-  Object.keys(binding).forEach(function (key) {
-    if (typeof binding[key] === 'function') {
-      toBind[index.indexOf('v') + 1] = key
-    }
-  })
+
+  var filter
+  var boundAttr = tupleOrig[2].substr(1)
+  if (typeof binding[boundAttr] === 'function') {
+    filter = binding[boundAttr]
+    toBind[index.indexOf('v') + 1] = boundAttr
+  }
 
   var score = indexScore[index] + (prefix.length * 10)
   if (isKnown(qFact.a)) {
@@ -118,10 +120,6 @@ function parseTuple (fb, tupleOrig, binding) {
       score += 1
     }
   }
-
-  var filter = typeof tuple[2] === 'function'
-    ? tuple[2]
-    : null
 
   return {
     score: score,

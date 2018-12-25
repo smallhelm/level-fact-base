@@ -349,3 +349,44 @@ test('Function binding', async function (t) {
     { id: 'apple', p: 9 }
   ])
 })
+
+test('Multiple function binding', async function (t) {
+  var tr = Transactor(mkDB(), {
+    price: { type: 'Integer' },
+    quantity: { type: 'Integer' }
+  }, mkNextId())
+
+  var fb = await tr.transact([
+    { $e: 'apple', price: 9, quantity: 0  },
+    { $e: 'banana', price: 2, quantity: 2 },
+    { $e: 'canteloupe', price: 4, quantity: 0 },
+    { $e: 'durian', price: 3, quantity: 8 },
+    { $e: 'elderberry', price: 1, quantity: 0 },
+    { $e: 'feijoa', price: 2, quantity: 1 },
+    { $e: 'grapes', price: 1, quantity: 3 }
+  ])
+
+  function lt4 (price) {
+    return price < 4
+  }
+
+  function inStock (quantity) {
+    return quantity > 0
+  }
+
+  var data = await fb.q(
+    [
+      ['?id', 'price', '?p'],
+      ['?id', 'quantity', '?q']
+    ],
+    { p: lt4, q: inStock },
+    ['id', 'p', 'q']
+  )
+
+  t.deepEqual(data, [
+    { id: 'grapes', p: 1, q: 3 },
+    { id: 'banana', p: 2, q: 2 },
+    { id: 'feijoa', p: 2, q: 1 },
+    { id: 'durian', p: 3, q: 8 },
+  ])
+})
