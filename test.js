@@ -339,13 +339,13 @@ test('Function binding', async function (t) {
   }
 
   var data = await fb.q(
-    [['?id', 'price', '?price']],
-    { price: gt3 },
-    ['id', 'price']
+    [['?id', 'price', '?p']],
+    { p: gt3 },
+    ['id', 'p']
   )
 
   t.deepEqual(data, [
-    { id: 'canteloupe', price: 4 },
-    { id: 'apple', price: 9 }
+    { id: 'canteloupe', p: 4 },
+    { id: 'apple', p: 9 }
   ])
 })

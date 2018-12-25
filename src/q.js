@@ -104,11 +104,12 @@ function parseTuple (fb, tupleOrig, binding) {
     if (isVar(qFact[index[i]])) {
       toBind[i + 1] = qFact[index[i]].substr(1)
     }
-
-    if (typeof qFact[index[i]] === 'function') {
-      toBind[i + 1] = qFact.a
-    }
   }
+  Object.keys(binding).forEach(function (key) {
+    if (typeof binding[key] === 'function') {
+      toBind[index.indexOf('v') + 1] = key
+    }
+  })
 
   var score = indexScore[index] + (prefix.length * 10)
   if (isKnown(qFact.a)) {
@@ -118,8 +119,8 @@ function parseTuple (fb, tupleOrig, binding) {
     }
   }
 
-  var filter = typeof binding[qFact.a] === 'function'
-    ? binding[qFact.a]
+  var filter = typeof tuple[2] === 'function'
+    ? tuple[2]
     : null
 
   return {
@@ -244,8 +245,10 @@ module.exports = function q (fb, tuples, binding, select, callback) {
     if (select && select.length > 0) {
       var rset = ResultSet()
       memo.forEach(function (binding) {
+        // console.log({binding});
         var r = {}
         select.forEach(function (key) {
+          // console.log({key});
           r[key] = binding[key]
         })
         rset.add(r)
