@@ -243,10 +243,8 @@ module.exports = function q (fb, tuples, binding, select, callback) {
     if (select && select.length > 0) {
       var rset = ResultSet()
       memo.forEach(function (binding) {
-        // console.log({binding});
         var r = {}
         select.forEach(function (key) {
-          // console.log({key});
           r[key] = binding[key]
         })
         rset.add(r)
