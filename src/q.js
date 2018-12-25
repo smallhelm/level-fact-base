@@ -98,7 +98,7 @@ function parseTuple (fb, tupleOrig, binding) {
       break
     }
   }
-  
+
   var toBind = {}
   for (i = 0; i < index.length; i++) {
     if (isVar(qFact[index[i]])) {

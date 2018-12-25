@@ -357,7 +357,7 @@ test('Multiple function binding', async function (t) {
   }, mkNextId())
 
   var fb = await tr.transact([
-    { $e: 'apple', price: 9, quantity: 0  },
+    { $e: 'apple', price: 9, quantity: 0 },
     { $e: 'banana', price: 2, quantity: 2 },
     { $e: 'canteloupe', price: 4, quantity: 0 },
     { $e: 'durian', price: 3, quantity: 8 },
@@ -387,6 +387,6 @@ test('Multiple function binding', async function (t) {
     { id: 'grapes', p: 1, q: 3 },
     { id: 'banana', p: 2, q: 2 },
     { id: 'feijoa', p: 2, q: 1 },
-    { id: 'durian', p: 3, q: 8 },
+    { id: 'durian', p: 3, q: 8 }
   ])
 })
