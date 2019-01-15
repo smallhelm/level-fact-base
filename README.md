@@ -175,6 +175,36 @@ fb.q([[ '?uid', 'user_email'    , '?email' ],
 // or
 results = await fb.q([..], {..}, [..])
 ```
+
+
+You may also pass filter functions as the values in a binding map. Bound functions should return a boolean and filter out facts that evalutate falsy. 
+
+
+```js
+function hasExclamation (text) {
+  return text.includes('!')
+}
+
+fb.q([[ '?cid', 'comment_userId', '?uid'   ],
+      [ '?cid', 'comment_text'  , '?text'  ]
+
+      { text: hasExclamation }, // match comments on text value
+
+      [ 'cid', 'text' ], // select which result bindings we care about
+
+      function(err, results){
+        // results are
+        // [
+        //   {cid: '456', text: 'wow!'},
+        //   {cid: '654', text: 'super!'},
+        //   ...
+        // ]
+      })
+```
+
+For more examples see `test.js`.
+
+
 NOTE: To help prevent injection attacks, use bindings to pass in untrusted data so it's properly escaped.
 
 

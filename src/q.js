@@ -16,7 +16,7 @@ function isVar (val) {
   return /^\?/.test(val)
 }
 function isKnown (val) {
-  return val != null && !isVar(val)
+  return val != null && !isVar(val) && typeof val !== 'function'
 }
 
 function bindToTuple (tuple, binding) {
@@ -106,6 +106,13 @@ function parseTuple (fb, tupleOrig, binding) {
     }
   }
 
+  var filter
+  var boundAttr = tupleOrig[2].substr(1)
+  if (typeof binding[boundAttr] === 'function') {
+    filter = binding[boundAttr]
+    toBind[index.indexOf('v') + 1] = boundAttr
+  }
+
   var score = indexScore[index] + (prefix.length * 10)
   if (isKnown(qFact.a)) {
     var type = fb.schema.byAttr[qFact.a]['_s/type']
@@ -113,10 +120,12 @@ function parseTuple (fb, tupleOrig, binding) {
       score += 1
     }
   }
+
   return {
     score: score,
     index: index,
     prefix: prefix,
+    filter: filter,
     toBind: toBind
   }
 }
@@ -126,6 +135,7 @@ function qTuple (fb, tuple, binding, callback) {
 
   var iE = pt.index.indexOf('e') + 1
   var iA = pt.index.indexOf('a') + 1
+  var iV = pt.index.indexOf('v') + 1
   var iT = pt.index.indexOf('t') + 1
 
   var latestResults = {}
@@ -137,6 +147,11 @@ function qTuple (fb, tuple, binding, callback) {
     if ($t > fb.txn) {
       return
     }
+
+    if (pt.filter && !pt.filter(data.key[iV])) {
+      return
+    }
+
     var resultKey = data.key[iE] + '|' + data.key[iA]
     if (latestResults[resultKey] && $t < latestResults[resultKey].t) {
       return
@@ -152,7 +167,7 @@ function qTuple (fb, tuple, binding, callback) {
     if (err) return callback(err)
 
     var results = Object.keys(latestResults).map(function (key) {
-      return Object.assign({}, latestResults[key].d, binding)
+      return Object.assign({}, binding, latestResults[key].d)
     })
     callback(null, results)
   })
