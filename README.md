@@ -6,7 +6,7 @@
 
 Store immutable "facts" in [level](https://github.com/Level/level) and query them with datalog.
 
-level-fact-base is inspired by [Datomic](http://www.datomic.com/)
+level-fact-base is inspired by [Datomic](http://www.datomic.com/). Also check out [datascript](https://github.com/tonsky/datascript).
 
 ## Why "Facts"??
 
