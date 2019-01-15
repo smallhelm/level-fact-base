@@ -69,10 +69,10 @@ vaeto|_s/attr|_s/attr|id1|1|true
 vaeto|_s/txn-time|_s/attr|id3|1|true
 vaeto|_s/type|_s/attr|id2|1|true
   `.trim())
-  var error = await t.throws(tr0.transact([{ name: 'bob' }]))
+  var error = await t.throwsAsync(tr0.transact([{ name: 'bob' }]))
   t.is(error + '', 'Error: Fact tuple missing `$e`')
 
-  error = await t.throws(tr0.transact([{ $e: 123, name: 'bob' }]))
+  error = await t.throwsAsync(tr0.transact([{ $e: 123, name: 'bob' }]))
   t.is(error + '', 'TypeError: EntityID `$e` should be a String')
 
   fb = await tr0.transact([])
@@ -191,7 +191,7 @@ test('Schema type assertions', async function (t) {
 
   async function tError (entity, expectedMsg) {
     entity.$e = nextId()
-    var error = await t.throws(tr.transact([entity]))
+    var error = await t.throwsAsync(tr.transact([entity]))
     t.is(error + '', expectedMsg)
   }
 
