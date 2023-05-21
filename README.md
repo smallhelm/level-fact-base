@@ -1,6 +1,6 @@
 # level-fact-base
 
-[![Build Status](https://travis-ci.org/smallhelm/level-fact-base.svg?branch=master)](https://travis-ci.org/smallhelm/level-fact-base)
+[![Test](https://img.shields.io/github/actions/workflow/status/smallhelm/level-fact-base/test.yml?branch=main&label=test)](https://github.com/smallhelm/level-fact-base/actions/workflows/test.yml)
 [![stability - experimental](https://img.shields.io/badge/stability-experimental-orange.svg)](https://nodejs.org/api/documentation.html#documentation_stability_index)
 [![JavaScript Style Guide](https://img.shields.io/badge/code_style-standard-brightgreen.svg)](https://standardjs.com)
 
