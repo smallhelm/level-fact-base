@@ -1,4 +1,4 @@
-const { createId: cuid } = require('@paralleldrive/cuid2')
+const { randomUUID } = require('node:crypto')
 const { Level } = require('level')
 var charwise = require('charwise')
 var Transactor = require('level-fact-base')
@@ -30,7 +30,7 @@ async function main () {
   // + 3 comments
   var fb = await tr.transact([
     {
-      $e: 'user0', // in the real world you'll generate a unique id using something like cuid
+      $e: 'user0', // in the real world you'll provide a unique id using something like UUID
       user_name: 'foo',
       user_email: 'foo@example.com'
     },
@@ -44,19 +44,19 @@ async function main () {
       blogpost_text: 'some blog post... no so long'
     },
     {
-      $e: cuid(),
+      $e: randomUUID(),
       comment_userId: 'user0',
       comment_blogpostId: 'post0',
       comment_text: 'This article sucks!'
     },
     {
-      $e: cuid(),
+      $e: randomUUID(),
       comment_userId: 'user1',
       comment_blogpostId: 'post0',
       comment_text: 'Why? I think this article is life-changing!'
     },
     {
-      $e: cuid(),
+      $e: randomUUID(),
       comment_userId: 'user0',
       comment_blogpostId: 'post0',
       comment_text: 'im just a troll'

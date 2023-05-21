@@ -87,7 +87,7 @@ The fact datalog equivalent:
 ```js
 var Transactor = require('level-fact-base')
 
-var db = level('db', {
+var db = new Level('db', {
   keyEncoding: require('charwise'),// or bytewise, or any codec for sorted arrays of flat json values
   valueEncoding: 'json'
 })
@@ -113,12 +113,13 @@ var fb = await tr.snap()
 
 Checkout [example/index.js](https://github.com/smallhelm/level-fact-base/blob/master/example/index.js) for a more complete example.
 
-### tr = Transactor(db, initSchema)
+### tr = Transactor(db, initSchema, nextId = randomUUID)
 
 Initialize the fact-base and return a transactor (`tr` for short)
 
  * `db` is any thing that exposes a levelup api.
  * `initSchema` the current expected schema for the transactor to use. As part of starting up the transactor it will sync up the schema to match what you pass it.
+ * `nextId` a function to generate unique string ids. Defaults to [crypto.randomUUID](https://nodejs.org/docs/latest-v20.x/api/crypto.html#cryptorandomuuidoptions)
 
 #### tr.snap() -> fb
 

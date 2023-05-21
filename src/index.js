@@ -1,5 +1,5 @@
 var eachSeries = require('async/eachSeries')
-const { createId: cuid } = require('@paralleldrive/cuid2')
+const { randomUUID } = require('node:crypto')
 var dbRange = require('./dbRange')
 var fastq = require('fastq')
 var promisify = require('./promisify')
@@ -224,9 +224,7 @@ function loadCurrFB (db, callback) {
   })
 }
 
-module.exports = function Transactor (db, initSchema, nextId) {
-  nextId = nextId || cuid
-
+module.exports = function Transactor (db, initSchema, nextId = randomUUID) {
   var currFB
 
   var transactQ = fastq(function (entities, callback) {
