@@ -1,8 +1,27 @@
 var charwise = require('charwise')
 var dbRange = require('./src/dbRange')
 const { MemoryLevel } = require('memory-level')
-var test = require('ava')
+const assert = require('node:assert')
+const nodeTest = require('node:test')
 var Transactor = require('./')
+
+// stub for https://www.npmjs.com/package/ava
+function test (name, fn) {
+  nodeTest(name, function () {
+    fn({
+      is: assert.strictEqual,
+      deepEqual: assert.deepStrictEqual,
+      throwsAsync: async function (p) {
+        try {
+          await p
+        } catch (err) {
+          return err
+        }
+        assert.fail('expected this to throw an error')
+      }
+    })
+  })
+}
 
 function mkDB () {
   return new MemoryLevel({ keyEncoding: charwise, valueEncoding: 'json' })
