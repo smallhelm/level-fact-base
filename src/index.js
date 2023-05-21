@@ -1,5 +1,5 @@
 var eachSeries = require('async/eachSeries')
-var cuid = require('cuid')
+const { createId: cuid } = require('@paralleldrive/cuid2')
 var dbRange = require('./dbRange')
 var fastq = require('fastq')
 var promisify = require('./promisify')

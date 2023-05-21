@@ -29,8 +29,8 @@
     "test": "standard && ava"
   },
   "dependencies": {
+    "@paralleldrive/cuid2": "2.2.0",
     "async": "^2.6.0",
-    "cuid": "^2.1.1",
     "fastq": "^1.5.0",
     "level-read-stream": "1.1.0",
     "memory-level": "1.0.0"

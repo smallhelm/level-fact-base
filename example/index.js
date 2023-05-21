@@ -1,4 +1,4 @@
-var cuid = require('cuid')
+const { createId: cuid } = require('@paralleldrive/cuid2')
 const { Level } = require('level')
 var charwise = require('charwise')
 var Transactor = require('level-fact-base')
