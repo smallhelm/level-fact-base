@@ -1,9 +1,9 @@
 var cuid = require('cuid')
-var level = require('level')
+const { Level } = require('level')
 var charwise = require('charwise')
 var Transactor = require('level-fact-base')
 
-var db = level('db', {
+const db = new Level('db', {
   keyEncoding: charwise, // or any codec for sorted arrays of flat json values
   valueEncoding: 'json'
 })

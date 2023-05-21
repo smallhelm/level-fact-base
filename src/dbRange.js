@@ -1,3 +1,5 @@
+const { EntryStream } = require('level-read-stream')
+
 var promisify = require('./promisify')
 
 module.exports = function dbRange (db, opts, onData, callbackOrig) {
@@ -17,7 +19,7 @@ module.exports = function dbRange (db, opts, onData, callbackOrig) {
     opts.lte = opts.prefix.concat([void 0])
   }
 
-  var stream = db.createReadStream(opts)
+  const stream = new EntryStream(db, opts)
   stream.on('error', callback)
   stream.on('end', callback)
   function stopRange () {
