@@ -1,16 +1,11 @@
 var charwise = require('charwise')
 var dbRange = require('./src/dbRange')
-var encode = require('encoding-down')
-var levelup = require('levelup')
-var memdown = require('memdown')
+const { MemoryLevel } = require('memory-level')
 var test = require('ava')
 var Transactor = require('./')
 
 function mkDB () {
-  return levelup(encode(memdown(), {
-    keyEncoding: charwise,
-    valueEncoding: 'json'
-  }))
+  return new MemoryLevel({ keyEncoding: charwise, valueEncoding: 'json' })
 }
 
 var mkNextId = function () {
